@@ -1,8 +1,5 @@
 (sym_lib_table
 	(version 7)
-	(lib (name "waveshare") (type "KiCad") (uri "E:/My files/nts_player/kicad/waveshare.kicad_sym") (options "") (descr ""))
 	(lib (name "waveshare") (type "KiCad") (uri "C:/Users/valentin/Documents/GitHub/nts-player/kicad/waveshare.kicad_sym") (options "") (descr ""))
 	(lib (name "lcsc") (type "KiCad") (uri "C:/Users/valentin/Documents/GitHub/nts-player/kicad/lcsc.kicad_sym") (options "") (descr ""))
-	(lib (name "waveshare") (type "KiCad") (uri "C:/Users/valentin/Documents/GitHub/nts-player/kicad/waveshare.kicad_sym") (options "") (descr ""))
-	(lib (name "waveshare") (type "KiCad") (uri "C:/Users/valentin/Documents/GitHub/nts-player/kicad/waveshare.kicad_sym") (options "") (descr ""))
 )
