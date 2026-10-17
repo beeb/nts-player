@@ -4867,7 +4867,7 @@
 					)
 				)
 			)
-			(property "Footprint" ""
+			(property "Footprint" "waveshare:ESP32-S3-DEV-KIT-NXR8"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -5609,7 +5609,7 @@
 				(pin bidirectional line
 					(at 25.4 -17.78 180)
 					(length 2.54)
-					(name "GPIO2"
+					(name "GPIO42"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -5627,7 +5627,7 @@
 				(pin bidirectional line
 					(at 25.4 -15.24 180)
 					(length 2.54)
-					(name "GPIO1"
+					(name "GPIO2"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -5645,7 +5645,7 @@
 				(pin bidirectional line
 					(at 25.4 -12.7 180)
 					(length 2.54)
-					(name "GPIO44"
+					(name "GPIO1"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -5663,7 +5663,7 @@
 				(pin bidirectional line
 					(at 25.4 -10.16 180)
 					(length 2.54)
-					(name "GPIO43"
+					(name "GPIO44"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -5671,6 +5671,24 @@
 						)
 					)
 					(number "42"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at 25.4 -7.62 180)
+					(length 2.54)
+					(name "GPIO43"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "43"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -5688,7 +5706,7 @@
 							)
 						)
 					)
-					(number "43"
+					(number "44"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -6302,6 +6320,10 @@
 		(uuid "49f4a956-d0d5-4513-80c7-c7c73790ccf0")
 	)
 	(no_connect
+		(at 78.74 50.8)
+		(uuid "4e38a6c9-92bf-4d15-8de5-d7548c628ffb")
+	)
+	(no_connect
 		(at 242.57 27.94)
 		(uuid "53711f91-d7b7-4fd2-bfdc-4e6be0adecfa")
 	)
@@ -6326,6 +6348,14 @@
 		(uuid "7639e2f0-f365-4e04-ae68-5ee22d65238d")
 	)
 	(no_connect
+		(at 31.75 63.5)
+		(uuid "7ce1e45c-41a2-4b95-b5b1-868da90b97e9")
+	)
+	(no_connect
+		(at 55.88 34.29)
+		(uuid "83affa53-05aa-48dd-8a96-fe501d18f998")
+	)
+	(no_connect
 		(at 78.74 53.34)
 		(uuid "86a2c767-5e20-4a0d-99d8-f867f5a15990")
 	)
@@ -6336,6 +6366,10 @@
 	(no_connect
 		(at 50.8 52.07)
 		(uuid "92fef719-87bd-49a5-b393-eb32c2d3eaa0")
+	)
+	(no_connect
+		(at 11.43 57.15)
+		(uuid "9362f8d5-b805-4b7d-b824-1bd438a338a6")
 	)
 	(no_connect
 		(at 78.74 83.82)
@@ -22584,7 +22618,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "waveshare:ESP32-S3-DEV-KIT-NXR8"
 			(at 53.34 43.18 0)
 			(hide yes)
 			(show_name no)
@@ -22745,6 +22779,9 @@
 		)
 		(pin "22"
 			(uuid "36469459-b023-41ce-b44f-68eabb01d6ea")
+		)
+		(pin "44"
+			(uuid "0fc6b6e7-b195-404d-acff-e597a9bc1dc6")
 		)
 		(instances
 			(project "nts_player"

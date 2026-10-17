@@ -1,0 +1,4 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "waveshare") (type "KiCad") (uri "C:/Users/valentin/Documents/GitHub/nts-player/kicad/waveshare.pretty") (options "") (descr ""))
+)
