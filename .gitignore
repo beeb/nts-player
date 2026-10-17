@@ -1,1 +1,7 @@
 kicad/nts_player/.history/
+*.bak
+*-bak
+*-backups/
+_autosave-*
+*.lck
+fp-info-cache

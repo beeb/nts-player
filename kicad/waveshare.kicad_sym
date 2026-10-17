@@ -101,7 +101,7 @@
 					)
 				)
 			)
-			(pin power_out line
+			(pin passive line
 				(at -2.54 -5.08 0)
 				(length 2.54)
 				(name "3V3"
