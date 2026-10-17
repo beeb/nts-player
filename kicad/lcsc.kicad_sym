@@ -4941,7 +4941,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:CONN-TH_RCJ-2122"
+		(property "Footprint" "lcsc:CONN-TH_RCJ-2123"
 			(at 0 -17.78 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6372,7 +6372,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 0 -8.89 0)
 			(show_name no)
 			(do_not_autoplace no)

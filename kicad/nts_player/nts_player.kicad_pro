@@ -488,7 +488,9 @@
     }
   },
   "libraries": {
-    "pinned_footprint_libs": [],
+    "pinned_footprint_libs": [
+      "lcsc"
+    ],
     "pinned_symbol_libs": [
       "lcsc"
     ]

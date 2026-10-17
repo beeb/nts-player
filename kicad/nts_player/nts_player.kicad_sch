@@ -3763,7 +3763,7 @@
 					)
 				)
 			)
-			(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+			(property "Footprint" "lcsc:WS2815B-2020-V6"
 				(at 0 -8.89 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -13180,7 +13180,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 135.89 78.74 0)
 			(hide yes)
 			(show_name no)
@@ -13879,7 +13879,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 200.66 78.74 0)
 			(hide yes)
 			(show_name no)
@@ -14971,7 +14971,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 135.89 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -15168,7 +15168,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 114.3 78.74 0)
 			(hide yes)
 			(show_name no)
@@ -15479,7 +15479,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 200.66 123.19 0)
 			(hide yes)
 			(show_name no)
@@ -16214,7 +16214,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 114.3 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -16752,7 +16752,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 157.48 123.19 0)
 			(hide yes)
 			(show_name no)
@@ -17294,7 +17294,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 222.25 78.74 0)
 			(hide yes)
 			(show_name no)
@@ -19180,7 +19180,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 114.3 123.19 0)
 			(hide yes)
 			(show_name no)
@@ -20114,7 +20114,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 179.07 78.74 0)
 			(hide yes)
 			(show_name no)
@@ -21191,7 +21191,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 179.07 123.19 0)
 			(hide yes)
 			(show_name no)
@@ -22500,7 +22500,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 157.48 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -24176,7 +24176,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 179.07 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -24713,7 +24713,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 200.66 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -25220,7 +25220,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 222.25 123.19 0)
 			(hide yes)
 			(show_name no)
@@ -25531,7 +25531,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 222.25 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -26416,7 +26416,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 135.89 123.19 0)
 			(hide yes)
 			(show_name no)
@@ -29620,7 +29620,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P"
+		(property "Footprint" "lcsc:WS2815B-2020-V6"
 			(at 157.48 78.74 0)
 			(hide yes)
 			(show_name no)
