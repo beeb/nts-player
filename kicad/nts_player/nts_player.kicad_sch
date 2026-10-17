@@ -2881,7 +2881,7 @@
 					)
 				)
 			)
-			(property "Footprint" "lcsc:CONN-TH_RCJ-2122"
+			(property "Footprint" "lcsc:CONN-TH_RCJ-2123"
 				(at 0 -17.78 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -11755,7 +11755,7 @@
 				)
 			)
 		)
-		(property "Footprint" "lcsc:CONN-TH_RCJ-2122"
+		(property "Footprint" "lcsc:CONN-TH_RCJ-2123"
 			(at 267.97 137.16 0)
 			(hide yes)
 			(show_name no)
