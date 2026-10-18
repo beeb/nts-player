@@ -1,0 +1,154 @@
+(version 1)
+# =============================================================================
+# JLCPCB custom DRC rules — 4-layer, 1.6 mm, outer 1 oz / inner 0.5 oz
+#
+# VALUES   : JLCPCB capabilities page (checked 2026-10-18)
+#            https://jlcpcb.com/capabilities/pcb-capabilities
+# SYNTAX   : KiCad built-in rules help (constraint definitions)
+#            https://docs.kicad.org/doxygen/panel__setup__rules__help__2constraints_8h_source.html
+#            Rule-writing patterns taken from two community rule sets:
+#            [labtroll] https://github.com/labtroll/KiCad-DesignRules (each rule PASS/FAIL tested)
+#            [darkxst]  https://gist.github.com/darkxst/f713268e5469645425eed40115fb8b49
+#            [maskset]  https://www.maskset.net/blog/2023/10/30/kicad-custom-drc-rules/
+#
+# ORDER    : "Later rules take precedence over earlier rules; once a matching
+#            rule is found no further rules will be checked." (KiCad rules help)
+#            -> conditions below are kept disjoint, or general-before-specific.
+#
+# NOT CHECKABLE HERE (verify manually):
+#  - PTH pad annular ring: KiCad's annular_width "checks the width of annular
+#    rings on vias" only. JLC multilayer 1 oz: recommended >= 0.20 mm,
+#    absolute min 0.15 mm. Check footprint pads by eye.
+#  - Non-plated slot min width 1.0 mm / plated slot min width 0.5 mm (JLC).
+#    labtroll lists these as TODO; no tested rule exists.
+# =============================================================================
+
+# ---------- Tracks ----------
+# JLC multilayer 1 oz: min track/space 0.09 mm. Outer layers kept at 0.127 mm
+# width as in [labtroll]/[darkxst].
+(rule "Track width, outer"
+	(layer outer)
+	(condition "A.Type == 'track'")
+	(constraint track_width (min 0.127mm)))
+
+# [maskset]: JLC rejected a board because "if the copper area is less than 30%
+# of the outer layers, then the trace-trace spacing should be at least 0.15 mm".
+(rule "Track spacing, outer"
+	(layer outer)
+	(condition "A.Type == 'track' && B.Type == A.Type")
+	(constraint clearance (min 0.15mm)))
+
+# JLC multilayer: 0.09 / 0.09 mm. Pattern from [labtroll].
+(rule "Track width, inner"
+	(layer inner)
+	(condition "A.Type == 'track'")
+	(constraint track_width (min 0.09mm)))
+
+(rule "Track spacing, inner"
+	(layer inner)
+	(condition "A.Type == 'track' && B.Type == A.Type")
+	(constraint clearance (min 0.09mm)))
+
+# ---------- Holes ----------
+# JLC drill range 2+ layers: 0.15 - 6.3 mm. Pattern from [labtroll].
+(rule "Hole diameter, all"
+	(constraint hole_size (min 0.15mm) (max 6.3mm)))
+
+# JLC: "Preferred Min. Via hole size: 0.2mm"; 0.2/0.25 mm holes with via
+# diameter < 0.45 mm cost more. Same values as [darkxst].
+(rule "Via hole size"
+	(condition "A.Type == 'via'")
+	(constraint hole_size (min 0.2mm)))
+
+(rule "Via diameter"
+	(condition "A.Type == 'via'")
+	(constraint via_diameter (min 0.45mm)))
+
+# JLC: "Min. Non-plated holes 0.50mm". Pattern from [darkxst].
+(rule "NPTH hole size"
+	(condition "A.Type == 'pad' && !A.isPlated()")
+	(constraint hole_size (min 0.5mm)))
+
+# JLC: "Via diameter should be 0.1mm (0.15mm preferred) larger than Via hole
+# size" -> ring >= 0.05 mm, 0.075 mm preferred. 0.075 mm as in [labtroll].
+(rule "Via annular ring"
+	(condition "A.Type == 'via'")
+	(constraint annular_width (min 0.075mm)))
+
+# ---------- Hole to hole ----------
+# JLC: "Via Hole-to-Hole Spacing 0.2mm", "Pad Hole-to-Hole Spacing 0.45mm".
+# [labtroll] uses net-based split (0.5 mm different nets / 0.254 mm same net);
+# here the split is by object type to match JLC's wording. Disjoint conditions.
+# Note: hole_to_hole does not check milled (oval) holes (KiCad rules help).
+(rule "Hole to hole, via-via"
+	(condition "A.Type == 'via' && B.Type == 'via'")
+	(constraint hole_to_hole (min 0.2mm)))
+
+(rule "Hole to hole, involving a pad"
+	(condition "A.Type == 'pad' || B.Type == 'pad'")
+	(constraint hole_to_hole (min 0.45mm)))
+
+# ---------- Hole to copper, outer layers ----------
+# KiCad: hole_clearance "checks the clearance between a drilled hole in a pad
+# or via and copper objects on a different net".
+# JLC: "Via hole to Track 0.2mm".
+(rule "Via hole to track, outer"
+	(layer outer)
+	(condition "A.Type == 'via' && B.Type == 'track'")
+	(constraint hole_clearance (min 0.2mm)))
+
+# JLC: "PTH to Track ... 0.35mm is recommended, minimum 0.28mm".
+# 0.33 mm as used by [labtroll] and [darkxst]. A.Type == 'pad' keeps vias
+# (which are also isPlated()) out of this rule.
+(rule "PTH hole to track, outer"
+	(layer outer)
+	(condition "A.Type == 'pad' && A.isPlated() && B.Type == 'track'")
+	(constraint hole_clearance (min 0.33mm)))
+
+# JLC: "NPTH to Track 0.2mm".
+(rule "NPTH hole to track"
+	(condition "A.Type == 'pad' && !A.isPlated() && B.Type == 'track'")
+	(constraint hole_clearance (min 0.2mm)))
+
+# ---------- Hole to copper, inner layers (planes) ----------
+# JLC: "Inner layer via hole to copper clearance 0.2mm",
+#      "Inner layer PTH pad hole to copper clearance 0.3mm".
+# No B condition: applies to all different-net copper on inner layers
+# (tracks and plane fills), per the hole_clearance definition above.
+(rule "Via hole to copper, inner"
+	(layer inner)
+	(condition "A.Type == 'via'")
+	(constraint hole_clearance (min 0.2mm)))
+
+(rule "PTH hole to copper, inner"
+	(layer inner)
+	(condition "A.Type == 'pad' && A.isPlated()")
+	(constraint hole_clearance (min 0.3mm)))
+
+# ---------- Pads ----------
+# JLC: "SMD pad to pad clearance (different nets) 0.15mm".
+(rule "Pad to pad, different nets"
+	(condition "A.Type == 'pad' && B.Type == A.Type && A.Net != B.Net")
+	(constraint clearance (min 0.15mm)))
+
+# ---------- Board edge ----------
+# JLC routed outline: "Copper clearance from routed board edges >= 0.2 mm",
+# "from routed slots >= 0.2 mm". 0.3 mm as in [darkxst]/[labtroll]
+# (JLC page listed 0.3 mm at the time; see gist comments).
+# KiCad: edge_clearance also covers oval (slot) pad holes.
+(rule "Copper to edge"
+	(constraint edge_clearance (min 0.3mm)))
+
+# ---------- Silkscreen ----------
+# JLC: min line width 0.15 mm, min text height 1.0 mm. Rule from [labtroll].
+(rule "Silkscreen text"
+	(layer "?.Silkscreen")
+	(condition "A.Type == 'Text' || A.Type == 'Text Box'")
+	(constraint text_thickness (min 0.15mm))
+	(constraint text_height (min 1mm)))
+
+# JLC: "Pad To Silkscreen 0.15mm". Rule from [labtroll].
+(rule "Pad to silkscreen"
+	(layer outer)
+	(condition "A.Type == 'pad' && B.Layer == '?.Silkscreen'")
+	(constraint silk_clearance (min 0.15mm)))
