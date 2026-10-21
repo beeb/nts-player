@@ -8,161 +8,6 @@
 		(title "NTS Player")
 	)
 	(lib_symbols
-		(symbol "Device:C"
-			(pin_numbers
-				(hide yes)
-			)
-			(pin_names
-				(offset 0.254)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "C"
-				(at 0.635 2.54 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Value" "C"
-				(at 0.635 -2.54 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Footprint" ""
-				(at 0.9652 -3.81 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "Unpolarized capacitor"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "cap capacitor"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "C_*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "C_0_1"
-				(polyline
-					(pts
-						(xy -2.032 0.762) (xy 2.032 0.762)
-					)
-					(stroke
-						(width 0.508)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -2.032 -0.762) (xy 2.032 -0.762)
-					)
-					(stroke
-						(width 0.508)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "C_1_1"
-				(pin passive line
-					(at 0 3.81 270)
-					(length 2.794)
-					(name ""
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 -3.81 90)
-					(length 2.794)
-					(name ""
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Device:C_Small"
 			(pin_numbers
 				(hide yes)
@@ -5984,12 +5829,6 @@
 		(uuid "5c0d4c57-e028-4c21-857d-fac977b402d7")
 	)
 	(junction
-		(at 95.25 82.55)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "6b7cd84b-d894-4747-b320-8a4f7bb50656")
-	)
-	(junction
 		(at 190.5 54.61)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -6080,6 +5919,12 @@
 		(uuid "901a6fc3-c999-43e1-8ca8-c83445a52073")
 	)
 	(junction
+		(at 114.3 148.59)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "98d73097-2c5d-4645-bc1d-dbe7ecf3ea4a")
+	)
+	(junction
 		(at 127 80.01)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -6102,6 +5947,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "a46088fd-9c5c-46cc-a422-afc7ab929277")
+	)
+	(junction
+		(at 114.3 156.21)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "af590baf-10e3-4f66-8304-68bdec648684")
 	)
 	(junction
 		(at 24.13 173.99)
@@ -6192,12 +6043,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d4b1ad59-9a32-4ffc-ab9d-f7a426f9d17d")
-	)
-	(junction
-		(at 105.41 74.93)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "d84b7133-d6a0-4ddf-aa80-471917e713b9")
 	)
 	(junction
 		(at 127 124.46)
@@ -6866,6 +6711,16 @@
 	)
 	(wire
 		(pts
+			(xy 107.95 148.59) (xy 114.3 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1f873296-83df-49f5-8654-644ea0586e78")
+	)
+	(wire
+		(pts
 			(xy 148.59 101.6) (xy 148.59 102.87)
 		)
 		(stroke
@@ -7256,16 +7111,6 @@
 			(type default)
 		)
 		(uuid "2e4a070f-3c18-464f-a272-1c46f00c0e32")
-	)
-	(wire
-		(pts
-			(xy 97.79 74.93) (xy 95.25 74.93)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2f338c42-ffba-4068-b9cd-74ad02ad780c")
 	)
 	(wire
 		(pts
@@ -8467,6 +8312,16 @@
 	)
 	(wire
 		(pts
+			(xy 107.95 154.94) (xy 107.95 156.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8f2b09e7-51b7-4fc7-86d8-e50798d208dc")
+	)
+	(wire
+		(pts
 			(xy 105.41 102.87) (xy 105.41 109.22)
 		)
 		(stroke
@@ -8607,16 +8462,6 @@
 			(type default)
 		)
 		(uuid "9732293e-8164-4367-a0c9-66e1a7b814d0")
-	)
-	(wire
-		(pts
-			(xy 95.25 74.93) (xy 95.25 82.55)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9798821e-b29b-457b-8d9b-f9ac7b59aa1b")
 	)
 	(wire
 		(pts
@@ -8777,6 +8622,16 @@
 			(type default)
 		)
 		(uuid "a09b7db2-2fe4-4bd1-bb89-64337d809e08")
+	)
+	(wire
+		(pts
+			(xy 107.95 149.86) (xy 107.95 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a1dcd2fa-4b09-46e7-bac9-84d0ce4807e6")
 	)
 	(wire
 		(pts
@@ -8957,6 +8812,16 @@
 			(type default)
 		)
 		(uuid "b079e1f1-721a-43c1-9ef6-314c6d6a0c96")
+	)
+	(wire
+		(pts
+			(xy 107.95 156.21) (xy 114.3 156.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b085f926-7503-4a7d-bcb1-df02dec50d6f")
 	)
 	(wire
 		(pts
@@ -16911,6 +16776,120 @@
 			(project "nts_player"
 				(path "/1408b968-3b31-406e-b1d1-4ba016138d81"
 					(reference "#PWR073")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 107.95 152.4 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "538e2a85-0720-4384-8f1e-468dc69a19d9")
+		(property "Reference" "C46"
+			(at 109.728 152.4 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10uF"
+			(at 107.95 150.368 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "lcsc:C1206"
+			(at 107.95 144.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_SAMSUNG_CL31A106KBHNNNE_10uF-106-10-50V_C13585.html"
+			(at 107.95 142.24 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "10uF (106) ±10% 50V"
+			(at 107.95 129.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "SAMSUNG(三星)"
+			(at 107.95 139.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CL31A106KBHNNNE"
+			(at 107.95 137.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C13585"
+			(at 107.95 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "459c6dd3-969f-47d7-94dd-fbdf9a999229")
+		)
+		(pin "1"
+			(uuid "4319bb52-bbdd-49a3-aba4-08b53a1e0787")
+		)
+		(instances
+			(project "nts_player"
+				(path "/1408b968-3b31-406e-b1d1-4ba016138d81"
+					(reference "C46")
 					(unit 1)
 				)
 			)
@@ -25804,118 +25783,6 @@
 			(project "nts_player"
 				(path "/1408b968-3b31-406e-b1d1-4ba016138d81"
 					(reference "C17")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C")
-		(at 101.6 74.93 90)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "c5314a84-80b2-4f58-a6cf-bb6b6e3d8c6a")
-		(property "Reference" "C9"
-			(at 101.6 71.628 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "100uF"
-			(at 97.536 73.406 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "lcsc:C1206"
-			(at 109.22 74.93 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_SAMSUNG_CL31A107MQHNNNE_100uF-107-20-6-3V_C15008.html"
-			(at 111.76 74.93 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "100uF (107) ±20% 6.3V"
-			(at 124.46 74.93 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Manufacturer" "SAMSUNG(三星)"
-			(at 114.3 74.93 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "MPN" "CL31A107MQHNNNE"
-			(at 116.84 74.93 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC Part" "C15008"
-			(at 119.38 74.93 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "674e82fa-4048-4cd9-93be-0e4a17447c7a")
-		)
-		(pin "1"
-			(uuid "d131dbfa-bb41-47e3-b47a-8e174b53cdec")
-		)
-		(instances
-			(project "nts_player"
-				(path "/1408b968-3b31-406e-b1d1-4ba016138d81"
-					(reference "C9")
 					(unit 1)
 				)
 			)
