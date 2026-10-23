@@ -5679,12 +5679,6 @@
 		(uuid "106df088-b86d-4bb2-8497-24ae65ea3284")
 	)
 	(junction
-		(at 110.49 184.15)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "10756f7c-af3d-41f3-8379-32573fa836ea")
-	)
-	(junction
 		(at 31.75 162.56)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -7124,16 +7118,6 @@
 	)
 	(wire
 		(pts
-			(xy 110.49 184.15) (xy 110.49 186.69)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2f5725d7-951f-4fd2-b52c-5410c4721adc")
-	)
-	(wire
-		(pts
 			(xy 191.77 123.19) (xy 191.77 124.46)
 		)
 		(stroke
@@ -7291,6 +7275,16 @@
 			(type default)
 		)
 		(uuid "3f9bbffc-61e2-492c-9e2f-5d62df1da313")
+	)
+	(wire
+		(pts
+			(xy 105.41 184.15) (xy 105.41 173.99)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3fe251cf-0c84-4f22-8bf3-0dd8ec01d8d9")
 	)
 	(polyline
 		(pts
@@ -8222,6 +8216,16 @@
 	)
 	(wire
 		(pts
+			(xy 113.03 184.15) (xy 105.41 184.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "89b7d5c7-efe0-42b1-a85f-41f040116964")
+	)
+	(wire
+		(pts
 			(xy 201.93 40.64) (xy 201.93 50.8)
 		)
 		(stroke
@@ -8232,7 +8236,7 @@
 	)
 	(wire
 		(pts
-			(xy 110.49 184.15) (xy 110.49 181.61)
+			(xy 110.49 181.61) (xy 110.49 186.69)
 		)
 		(stroke
 			(width 0)
@@ -9768,16 +9772,6 @@
 			(type default)
 		)
 		(uuid "ea03d5a3-21a3-4613-9ad0-793dc5357a51")
-	)
-	(wire
-		(pts
-			(xy 113.03 184.15) (xy 110.49 184.15)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ea20b03f-bb9f-4b52-824e-c30f11a8a1df")
 	)
 	(polyline
 		(pts
@@ -11597,8 +11591,8 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
+		(in_pos_files no)
+		(dnp yes)
 		(uuid "0fa3b33d-e121-4349-9f75-50a4d7e67efc")
 		(property "Reference" "J2"
 			(at 271.145 105.41 0)
@@ -13916,8 +13910,8 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
+		(in_pos_files no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "2c421063-86a9-4a7e-85b3-5ec27c269947")
 		(property "Reference" "USB2"
@@ -19666,6 +19660,84 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+5V")
+		(at 105.41 173.99 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "7b3a995e-b253-4c44-8073-97a2eebf868b")
+		(property "Reference" "#PWR0108"
+			(at 105.41 177.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+5V"
+			(at 105.41 168.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 105.41 173.99 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 105.41 173.99 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 105.41 173.99 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "acff519e-d198-4c80-9f38-16445da6bc91")
+		)
+		(instances
+			(project "nts_player"
+				(path "/1408b968-3b31-406e-b1d1-4ba016138d81"
+					(reference "#PWR0108")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C_Small")
 		(at 40.64 130.81 0)
 		(unit 1)
@@ -21573,8 +21645,8 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
+		(in_pos_files no)
+		(dnp yes)
 		(uuid "95d9e5af-562b-4102-8a73-daf7223ee69e")
 		(property "Reference" "J1"
 			(at 268.48 86.36 0)
@@ -22574,8 +22646,8 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
+		(in_pos_files no)
+		(dnp yes)
 		(uuid "9e39d8b5-9e70-4ff2-87ec-3b7a2b5c8c38")
 		(property "Reference" "U1"
 			(at 65.024 38.608 0)
