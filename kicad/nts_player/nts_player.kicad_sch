@@ -20119,7 +20119,34 @@
 				)
 			)
 		)
-	)
+	
+		(property "LCSC Part" "C2862740"
+			(at 107.95 29.21 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "TPS7A2033PDBVR"
+			(at 107.95 29.21 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "TI(德州仪器)"
+			(at 107.95 29.21 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		))
 	(symbol
 		(lib_id "lcsc:WS2812B-2020-V6")
 		(at 179.07 87.63 0)
