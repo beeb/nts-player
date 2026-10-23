@@ -53,7 +53,7 @@
 			)
 		)
 	)
-	(attr smd)
+	(attr through_hole exclude_from_pos_files)
 	(duplicate_pad_numbers_are_jumpers no)
 	(fp_rect
 		(start -31.975 -4.5)

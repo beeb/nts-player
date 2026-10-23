@@ -28628,8 +28628,8 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
+		(in_pos_files no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "f280587f-fdd7-4118-80f3-c2f7d58386ab")
 		(property "Reference" "SW1"
