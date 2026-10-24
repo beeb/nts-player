@@ -9,8 +9,15 @@ harness = false  # do not use the built-in cargo test harness to avoid rust-anal
 name = "nts-player"
 
 [dependencies]
+anyhow = "1.0.104"
+edge-captive = { version = "0.8.0", default-features = false }
 esp-idf-svc = "0.53.0"
+form_urlencoded = "1.2.2"
+heapless = "0.9.3"
 log = "0.4.34"
 
 [build-dependencies]
 embuild = "0.33.7"
+
+[lints]
+workspace = true
