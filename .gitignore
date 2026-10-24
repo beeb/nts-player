@@ -6,3 +6,4 @@ _autosave-*
 *.lck
 fp-info-cache
 production/
+.direnv/

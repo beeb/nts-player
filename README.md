@@ -52,7 +52,95 @@ Avoided: strapping pins 0, 3, 45, 46; GPIO35–37 (octal PSRAM); GPIO19/20 (USB)
 
 ## Building and Flashing
 
-TODO
+This is a `std` (ESP-IDF based) Rust project. The ESP-IDF C SDK is downloaded and built automatically by the
+`esp-idf-sys` build script. Run all commands from the repository root.
+
+### Prerequisites with Nix
+
+The [flake](./flake.nix) provides a dev shell (x86_64 Linux only) with the Xtensa Rust toolchain from esp-rs (pinned in
+[`nix/esp-rust.nix`](./nix/esp-rust.nix)), `ldproxy`, `espflash` and the tools needed by the ESP-IDF build:
+
+```sh
+nix develop
+```
+
+### Prerequisites without Nix
+
+Espressif's [Rust on ESP book](https://docs.espressif.com/projects/rust/book/getting-started/index.html) is the
+reference for the toolchain setup. TL;DR:
+
+1. Install the
+   [ESP-IDF host dependencies](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/linux-macos-setup.html#step-1-install-prerequisites)
+
+2. Install [Rust with `rustup`](https://rustup.rs/).
+
+3. Install [`espup`](https://github.com/esp-rs/espup) and the Xtensa toolchain:
+
+   ```sh
+   cargo install espup --locked
+   espup install
+   ```
+
+4. Activate the environment from `espup`. **This has to be done in every new shell**:
+
+   ```sh
+   . $HOME/export-esp.sh
+   ```
+
+5. Install the linker wrapper and the flashing tool:
+
+   ```sh
+   cargo install ldproxy --locked
+   cargo install espflash --locked
+   ```
+
+   `ldproxy` is required by [`.cargo/config.toml`](./.cargo/config.toml) to use `espflash` as the cargo `runner`.
+
+### ESP-IDF
+
+The version is pinned in [`.cargo/config.toml`](./.cargo/config.toml):
+
+```toml
+[env]
+ESP_IDF_VERSION = "v5.5.5"
+```
+
+On the first `cargo build`, the `esp-idf-sys` build script clones that tag into `.embuild/` and downloads the matching
+ESP-IDF toolchains. This will take a few GBs of space and take a while the first time.
+
+### Build
+
+```sh
+cargo build --release
+```
+
+### Flash and Monitor
+
+Connect the board over USB, then:
+
+```sh
+cargo run --release
+```
+
+The `runner` configured in [`.cargo/config.toml`](./.cargo/config.toml) invokes `espflash flash --monitor`, which
+flashes the firmware and then opens the serial monitor. To flash without the monitor, or from a script, give the port
+explicitly:
+
+```sh
+espflash flash --port /dev/ttyACM0 target/xtensa-esp32s3-espidf/release/nts-player
+```
+
+### WSL
+
+Pass the board through to WSL with [usbipd-win](https://github.com/dorssel/usbipd-win). In PowerShell:
+
+```powershell
+usbipd list                                         # find the board's bus ID
+usbipd bind --busid <BUSID>                         # once, as administrator
+usbipd attach --wsl --busid <BUSID> --auto-attach   # each session
+```
+
+Your WSL user must be in the `dialout` group to open `/dev/ttyACM0`.
 
 ## License
 
