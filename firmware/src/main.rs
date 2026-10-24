@@ -8,8 +8,12 @@ use esp_idf_svc::{
     wifi::{BlockingWifi, EspWifi},
 };
 
-use crate::wifi::Credentials;
+use crate::{
+    led::{Color, Led},
+    wifi::Credentials,
+};
 
+mod led;
 mod portal;
 mod wifi;
 
@@ -24,15 +28,21 @@ fn main() {
     // Bind the log crate to the ESP Logging facilities
     esp_idf_svc::log::EspLogger::initialize_default();
 
-    if let Err(e) = run() {
+    let mut led = None;
+    if let Err(e) = run(&mut led) {
         log::error!("{e:?}");
+        if let Some(led) = &mut led {
+            led.set(Color::DBG_RED).ok();
+        }
         thread::sleep(Duration::from_secs(5));
         restart();
     }
 }
 
-fn run() -> Result<()> {
+/// Run the app, storing the LED in `led` so that `main` can still use it on error.
+fn run(led: &mut Option<Led>) -> Result<()> {
     let peripherals = Peripherals::take()?;
+    let led = led.insert(Led::new(peripherals.pins.gpio38)?);
     let sysloop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
     let mut wifi = BlockingWifi::wrap(
@@ -42,8 +52,10 @@ fn run() -> Result<()> {
 
     let Some(creds) = Credentials::load(nvs.clone())? else {
         log::info!("no wifi credentials saved");
+        led.set(Color::DBG_BLUE)?;
         return portal::run(wifi, nvs, None); // stay on portal forever
     };
+    led.set(Color::DBG_YELLOW)?;
     let connected = (1..=CONNECT_ATTEMPTS).any(|attempt| {
         creds
             .connect(&mut wifi)
@@ -58,8 +70,10 @@ fn run() -> Result<()> {
     if !connected {
         // connecting with saved credentials failed, let's show the portal
         // again for a little bit before we retry
+        led.set(Color::DBG_BLUE)?;
         return portal::run(wifi, nvs, Some(PORTAL_TIMEOUT));
     }
+    led.set(Color::DBG_GREEN)?;
     log::info!(
         "connected to {}, ip: {}",
         creds.ssid,

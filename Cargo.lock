@@ -1031,6 +1031,7 @@ dependencies = [
  "form_urlencoded",
  "heapless",
  "log",
+ "ws2812-esp32-rmt-driver",
 ]
 
 [[package]]
@@ -1078,6 +1079,12 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "percent-encoding"
@@ -1800,6 +1807,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "ws2812-esp32-rmt-driver"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbbcd51b6ded17f8e056ee251af6353dbacc03ea9250cd1dcd667869ecc896a4"
+dependencies = [
+ "embuild",
+ "esp-idf-hal",
+ "esp-idf-sys",
+ "paste",
 ]
 
 [[package]]

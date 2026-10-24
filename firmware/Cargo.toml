@@ -15,6 +15,7 @@ esp-idf-svc = "0.53.0"
 form_urlencoded = "1.2.2"
 heapless = "0.9.3"
 log = "0.4.34"
+ws2812-esp32-rmt-driver = "0.15.0"
 
 [build-dependencies]
 embuild = "0.33.7"
