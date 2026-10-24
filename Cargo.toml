@@ -1,0 +1,10 @@
+[workspace]
+resolver = "3"
+members = ["firmware"]
+
+[profile.dev]
+opt-level = "z"
+debug = true  # this does not increase the size in flash
+
+[profile.release]
+opt-level = "s"

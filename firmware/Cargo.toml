@@ -1,0 +1,16 @@
+[package]
+name = "nts-player"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+
+[[bin]]
+harness = false  # do not use the built-in cargo test harness to avoid rust-analyzer errors
+name = "nts-player"
+
+[dependencies]
+esp-idf-svc = "0.53.0"
+log = "0.4.34"
+
+[build-dependencies]
+embuild = "0.33.7"
