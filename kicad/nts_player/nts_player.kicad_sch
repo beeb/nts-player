@@ -20548,7 +20548,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount_YAGEO-RT0805DRD07470RL_C706320.html"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2206010200_UNI-ROYAL-Uniroyal-Elec-0805W8F4700T5E_C17710.pdf"
 			(at 278.13 31.75 0)
 			(hide yes)
 			(show_name no)
@@ -20570,7 +20570,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "YAGEO(国巨)"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 280.67 31.75 0)
 			(hide yes)
 			(show_name no)
@@ -20581,7 +20581,7 @@
 				)
 			)
 		)
-		(property "MPN" "RT0805DRD07470RL"
+		(property "MPN" "0805W8F4700T5E"
 			(at 283.21 31.75 0)
 			(hide yes)
 			(show_name no)
@@ -20592,7 +20592,7 @@
 				)
 			)
 		)
-		(property "LCSC Part" "C706320"
+		(property "LCSC Part" "C17710"
 			(at 285.75 31.75 0)
 			(hide yes)
 			(show_name no)
@@ -20854,7 +20854,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount_YAGEO-RT0805DRD07470RL_C706320.html"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2206010200_UNI-ROYAL-Uniroyal-Elec-0805W8F4700T5E_C17710.pdf"
 			(at 278.13 48.26 0)
 			(hide yes)
 			(show_name no)
@@ -20876,7 +20876,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "YAGEO(国巨)"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 280.67 48.26 0)
 			(hide yes)
 			(show_name no)
@@ -20887,7 +20887,7 @@
 				)
 			)
 		)
-		(property "MPN" "RT0805DRD07470RL"
+		(property "MPN" "0805W8F4700T5E"
 			(at 283.21 48.26 0)
 			(hide yes)
 			(show_name no)
@@ -20898,7 +20898,7 @@
 				)
 			)
 		)
-		(property "LCSC Part" "C706320"
+		(property "LCSC Part" "C17710"
 			(at 285.75 48.26 0)
 			(hide yes)
 			(show_name no)

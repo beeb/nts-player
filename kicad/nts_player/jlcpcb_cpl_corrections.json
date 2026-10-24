@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "policy_id": "nts-player-jlcpcb-cpl",
+  "provenance": "JLCPCB PCBA Viewer, 2026-10-24: U3 (KiCad Package_TO_SOT_SMD:SOT-23-5) shown with pin 1 at bottom-right instead of top-left",
+  "footprint_rules": [],
+  "component_overrides": [
+    {
+      "id": "u3-sot-23-5-kicad-stdlib",
+      "designator": "U3",
+      "rotation_degrees": 180
+    }
+  ]
+}
