@@ -804,7 +804,7 @@
 				)
 			)
 		)
-		(attr board_only)
+		(attr board_only exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_circle
 			(center 0 0)
@@ -26470,7 +26470,7 @@
 			)
 		)
 		(property "Value" "0.1uF"
-			(at 0 4 -90)
+			(at 0 4 270)
 			(layer "F.Fab")
 			(uuid "189ef582-a13d-49e3-98f0-9be1d18c3b26")
 			(effects
@@ -26481,7 +26481,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html"
-			(at 0 0 -90)
+			(at 0 0 270)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "a33ec83d-9de6-4335-9ad1-bb58222604f6")
@@ -26492,7 +26492,7 @@
 			)
 		)
 		(property "Description" "100nF (104) ±10% 50V"
-			(at 0 0 -90)
+			(at 0 0 270)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "68530735-4fa0-44b1-a1a6-e2a655f02f88")
@@ -26503,7 +26503,7 @@
 			)
 		)
 		(property "LCSC Part" "C14663"
-			(at 0 0 -90)
+			(at 0 0 270)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "05c532a2-4c41-4963-9e4c-7df2a348e83a")
@@ -26708,7 +26708,7 @@
 			(uuid "0bfd0176-79ec-48ae-8200-9d4ffa5076f9")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 -90)
+			(at 0 0 270)
 			(layer "F.Fab")
 			(uuid "cb07c271-13d6-436a-940b-a19af2ef4899")
 			(effects
@@ -27521,7 +27521,7 @@
 				)
 			)
 		)
-		(attr through_hole exclude_from_pos_files dnp)
+		(attr through_hole exclude_from_pos_files exclude_from_bom dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_rect
 			(start -31.975 4.5)
