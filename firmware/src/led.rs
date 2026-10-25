@@ -1,8 +1,10 @@
-use std::sync::{Mutex, PoisonError};
+use std::sync::Mutex;
 
 use anyhow::Result;
 use esp_idf_svc::hal::gpio::OutputPin;
 use ws2812_esp32_rmt_driver::Ws2812Esp32RmtDriver;
+
+use crate::prelude::OrPanic;
 
 /// Color of an RGB LED.
 #[derive(Clone, Copy)]
@@ -33,7 +35,7 @@ impl Led {
         // the onboard LED expects RGB order
         self.0
             .lock()
-            .unwrap_or_else(PoisonError::into_inner)
+            .or_panic("LED mutex poisoned")
             .write_blocking([color.r, color.g, color.b].into_iter())?;
         Ok(())
     }

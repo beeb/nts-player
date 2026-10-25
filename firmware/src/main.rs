@@ -1,4 +1,8 @@
-use std::{sync::Arc, thread, time::Duration};
+use std::{
+    sync::Arc,
+    thread,
+    time::{Duration, Instant},
+};
 
 use anyhow::Result;
 use esp_idf_svc::{
@@ -9,18 +13,31 @@ use esp_idf_svc::{
 };
 
 use crate::{
+    buffer::RingBuffer,
     input::Ui,
     led::{Color, Led},
+    stream::{STATIONS, Stream},
     wifi::Credentials,
 };
 
+mod buffer;
 mod input;
 mod led;
 mod portal;
+mod prelude;
+mod stream;
 mod wifi;
 
 const CONNECT_ATTEMPTS: usize = 3;
 const PORTAL_TIMEOUT: Duration = Duration::from_mins(5);
+
+/// About 5 s of audio at 256 kbps.
+const BUFFER_SIZE: usize = 160 * 1024;
+
+/// Fake consumer: 4000 bytes every 125 ms is 32 000 B/s, the stream bitrate.
+const READ_SIZE: usize = 4000;
+const READ_INTERVAL: Duration = Duration::from_millis(125);
+const LOG_INTERVAL: Duration = Duration::from_secs(5);
 
 fn main() {
     // It is necessary to call this function once. Otherwise, some patches to the runtime
@@ -83,8 +100,27 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
         wifi.wifi().sta_netif().get_ip_info()?.ip
     );
 
-    // keep the connection alive
+    let buffer = Arc::new(RingBuffer::new(BUFFER_SIZE));
+    Stream::spawn(STATIONS[0], buffer.clone())?;
+    // never returns, which also keeps `wifi` alive
+    consume(&buffer)
+}
+
+/// Stand-in for the decoder: drain the buffer at the stream bitrate and log the fill level.
+fn consume(buffer: &RingBuffer) -> ! {
+    let mut chunk = vec![0; READ_SIZE];
+    let mut last_log = Instant::now();
     loop {
-        thread::sleep(Duration::from_secs(1));
+        buffer.wait_level(buffer.capacity() / 2);
+        log::info!("buffer half full, playing");
+        while buffer.len() > 0 {
+            buffer.read(&mut chunk);
+            if last_log.elapsed() >= LOG_INTERVAL {
+                log::info!("buffer: {} / {} bytes", buffer.len(), buffer.capacity());
+                last_log = Instant::now();
+            }
+            thread::sleep(READ_INTERVAL);
+        }
+        log::warn!("buffer underrun");
     }
 }
