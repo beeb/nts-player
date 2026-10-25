@@ -7,13 +7,15 @@
 <style>
 html { color-scheme: dark; background: #111; color: #eee; font-family: sans-serif; font-size: 1.25em; line-height: 1.75; max-width: 30rem; padding: 3em 1em; margin: auto; }
 select, input, button { display: block; width: 100%; box-sizing: border-box; margin: 0.25em 0 1em; padding: 0.5em; font: inherit; }
+input[type=checkbox] { display: inline; width: auto; margin: 0 0.5em 1em 0; }
 </style>
 </head>
 <body>
 <h1>NTS Player Setup</h1>
 <form method="post" action="/">
 <label>Network <select name="ssid" required>{options}</select></label>
-<label>Password <input name="password" type="password" maxlength="64"></label>
+<label>Password <input id="password" name="password" type="password" maxlength="64"></label>
+<label><input type="checkbox" onchange="password.type = this.checked ? 'text' : 'password'">Show password</label>
 <button>Connect</button>
 </form>
 </body>
