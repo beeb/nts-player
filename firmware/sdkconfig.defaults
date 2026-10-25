@@ -20,3 +20,6 @@ CONFIG_SPIRAM_MEMTEST=n
 
 # trust the common root CAs for HTTPS
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+
+# rated maximum, speeds up TLS handshakes and MP3 decoding
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y

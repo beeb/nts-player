@@ -121,14 +121,14 @@ fn scan(wifi: &mut BlockingWifi<EspWifi<'static>>) -> Result<Vec<String>> {
         .iter()
         .map(|ap| ap.ssid.as_str())
         .filter(|s| !s.is_empty() && seen.insert(*s))
-        .map(str::to_owned)
+        .map(str::to_string)
         .collect())
 }
 
 /// Render the SSID `<option>` elements for the dropdown.
 fn options(ssids: &[String]) -> String {
     if ssids.is_empty() {
-        return r#"<option value="" disabled selected>No networks found</option>"#.to_owned();
+        return r#"<option value="" disabled selected>No networks found</option>"#.to_string();
     }
     ssids.iter().fold(String::new(), |mut out, s| {
         let s = escape(s);

@@ -4,8 +4,9 @@ use anyhow::{Result, bail};
 use esp_idf_svc::{
     http::{
         Method,
-        client::{Configuration, EspHttpConnection},
+        client::{Configuration, EspHttpConnection, FollowRedirectsPolicy},
     },
+    nvs::{EspDefaultNvsPartition, EspNvs, NvsDefault},
     sys::esp_crt_bundle_attach,
 };
 
@@ -42,19 +43,37 @@ const CHUNK: usize = 4096;
 /// A read that takes longer than this fails and triggers a reconnect.
 const TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Hops after the station URL, NTS uses 2.
+const MAX_REDIRECTS: usize = 3;
+
+/// Size of the buffer used to load a cached edge URL from NVS.
+const URL_MAX: usize = 256;
+
+/// NVS namespace of the cached edge URLs, keyed by station index.
+const NAMESPACE: &str = "edges";
+
 const MIN_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(30);
 
 /// The network thread, streaming one station into the ring buffer.
 pub struct Stream {
-    url: &'static str,
+    station: usize,
     buffer: Arc<RingBuffer>,
+    edges: EspNvs<NvsDefault>,
 }
 
 impl Stream {
-    /// Start streaming `url` into `buffer` on a new thread.
-    pub fn spawn(url: &'static str, buffer: Arc<RingBuffer>) -> Result<()> {
-        let stream = Self { url, buffer };
+    /// Start streaming the station at index `station` into `buffer` on a new thread.
+    pub fn spawn(
+        station: usize,
+        buffer: Arc<RingBuffer>,
+        nvs: EspDefaultNvsPartition,
+    ) -> Result<()> {
+        let stream = Self {
+            station,
+            buffer,
+            edges: EspNvs::new(nvs, NAMESPACE, true)?,
+        };
         thread::Builder::new()
             .stack_size(STACK_SIZE)
             .spawn(move || stream.run())?;
@@ -74,24 +93,7 @@ impl Stream {
 
     /// Connect and copy the body into the buffer until something fails.
     fn stream(&self, backoff: &mut Duration) -> Result<Infallible> {
-        let mut conn = EspHttpConnection::new(&Configuration {
-            buffer_size: Some(CHUNK),
-            timeout: Some(TIMEOUT),
-            crt_bundle_attach: Some(esp_crt_bundle_attach),
-            ..Default::default()
-        })?;
-        // the default redirect policy follows redirects for GET
-        conn.initiate_request(Method::Get, self.url, &[])?;
-        conn.initiate_response()?;
-        let status = conn.status();
-        if status != 200 {
-            bail!("HTTP status {status}");
-        }
-        let content_type = conn.header("Content-Type").unwrap_or_default();
-        if content_type != "audio/mpeg" {
-            bail!("unexpected content type {content_type:?}");
-        }
-        log::info!("streaming {}", self.url);
+        let mut conn = self.connect()?;
         let mut chunk = vec![0; CHUNK];
         loop {
             let n = conn.read(&mut chunk)?;
@@ -100,6 +102,82 @@ impl Stream {
             }
             self.buffer.write(&chunk[..n]);
             *backoff = MIN_BACKOFF;
+        }
+    }
+
+    /// Open the station's audio stream, trying the cached edge URL first.
+    ///
+    /// Following the redirects from the station URL is slow. We cache the resolved URL to speed up connecting.
+    fn connect(&self) -> Result<EspHttpConnection> {
+        let key = format!("s{}", self.station);
+        let mut buf = [0; URL_MAX];
+        if let Ok(Some(edge)) = self.edges.get_str(&key, &mut buf) {
+            log::info!("GET {edge} (cached)");
+            match Hop::get(edge) {
+                Ok(Hop::Stream(conn)) => {
+                    log::info!("streaming {edge}");
+                    return Ok(conn);
+                }
+                Ok(Hop::Redirect(next)) => log::warn!("cached edge redirected to {next}"),
+                Err(e) => log::warn!("cached edge failed: {e:?}"),
+            }
+            self.edges.remove(&key).ok();
+        }
+        let mut url = STATIONS[self.station].to_string();
+        for _ in 0..=MAX_REDIRECTS {
+            log::info!("GET {url}");
+            match Hop::get(&url)? {
+                Hop::Redirect(next) => url = next,
+                Hop::Stream(conn) => {
+                    if let Err(e) = self.edges.set_str(&key, &url) {
+                        log::warn!("could not save edge: {e:?}");
+                    }
+                    log::info!(
+                        "streaming {url}, saved as edge for station {}",
+                        self.station
+                    );
+                    return Ok(conn);
+                }
+            }
+        }
+        bail!("too many redirects")
+    }
+}
+
+/// Response for the GET (without automatic redirect following).
+enum Hop {
+    Redirect(String),
+    Stream(EspHttpConnection),
+}
+
+impl Hop {
+    /// GET `url` and return either the redirect target or the audio stream.
+    fn get(url: &str) -> Result<Self> {
+        let mut conn = EspHttpConnection::new(&Configuration {
+            buffer_size: Some(CHUNK),
+            timeout: Some(TIMEOUT),
+            follow_redirects_policy: FollowRedirectsPolicy::FollowNone,
+            crt_bundle_attach: Some(esp_crt_bundle_attach),
+            ..Default::default()
+        })?;
+        conn.initiate_request(Method::Get, url, &[])?;
+        conn.initiate_response()?;
+        match conn.status() {
+            301 | 302 | 303 | 307 | 308 => {
+                let next = conn.header("Location").unwrap_or_default();
+                if !next.starts_with("https://") {
+                    bail!("unexpected redirect to {next:?}");
+                }
+                Ok(Self::Redirect(next.to_string()))
+            }
+            200 => {
+                let content_type = conn.header("Content-Type").unwrap_or_default();
+                if content_type != "audio/mpeg" {
+                    bail!("unexpected content type {content_type:?}");
+                }
+                Ok(Self::Stream(conn))
+            }
+            status => bail!("HTTP status {status}"),
         }
     }
 }

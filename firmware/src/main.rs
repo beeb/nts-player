@@ -16,7 +16,7 @@ use crate::{
     buffer::RingBuffer,
     input::Ui,
     led::{Color, Led},
-    stream::{STATIONS, Stream},
+    stream::Stream,
     wifi::Credentials,
 };
 
@@ -101,7 +101,7 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
     );
 
     let buffer = Arc::new(RingBuffer::new(BUFFER_SIZE));
-    Stream::spawn(STATIONS[0], buffer.clone())?;
+    Stream::spawn(0, buffer.clone(), nvs)?;
     // never returns, which also keeps `wifi` alive
     consume(&buffer)
 }
