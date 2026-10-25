@@ -14,6 +14,9 @@ CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT=4096
 # octal PSRAM on the N16R8 module, large allocations go there
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+# skip the memory test to save about 0.7 s on every boot and wake
+CONFIG_SPIRAM_MEMTEST=n
 
 # trust the common root CAs for HTTPS
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
