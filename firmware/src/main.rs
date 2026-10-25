@@ -70,7 +70,7 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
         sysloop,
     )?;
 
-    let Some(creds) = Credentials::load(nvs.clone())? else {
+    let Some(mut creds) = Credentials::load(nvs.clone())? else {
         log::info!("no wifi credentials saved");
         led.set(Color::DBG_BLUE)?;
         return portal::run(wifi, nvs, None); // stay on portal forever
@@ -99,6 +99,9 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
         creds.ssid,
         wifi.wifi().sta_netif().get_ip_info()?.ip
     );
+    if let Err(e) = creds.save_channel(nvs.clone(), &wifi) {
+        log::warn!("could not save wifi channel: {e:?}");
+    }
 
     let buffer = Arc::new(RingBuffer::new(BUFFER_SIZE));
     Stream::spawn(0, buffer.clone(), nvs)?;

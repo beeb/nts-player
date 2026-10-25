@@ -23,3 +23,6 @@ CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
 
 # rated maximum, speeds up TLS handshakes and MP3 decoding
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# skip the ARP probe of the offered address, it delays getting an IP by about 1 s
+CONFIG_LWIP_DHCP_DOES_NOT_CHECK_OFFERED_IP=y

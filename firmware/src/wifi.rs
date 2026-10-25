@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use esp_idf_svc::{
     nvs::{EspDefaultNvsPartition, EspNvs},
-    wifi::{AuthMethod, BlockingWifi, ClientConfiguration, Configuration, EspWifi},
+    wifi::{AuthMethod, BlockingWifi, ClientConfiguration, Configuration, EspWifi, ScanMethod},
 };
 use heapless::String;
 
@@ -11,6 +11,8 @@ const NAMESPACE: &str = "wifi";
 pub struct Credentials {
     pub ssid: String<32>,
     pub password: String<64>,
+    /// Channel of the last successful connection.
+    pub channel: Option<u8>,
 }
 
 impl Credentials {
@@ -31,6 +33,7 @@ impl Credentials {
         Some(Self {
             ssid,
             password: password?,
+            channel: None,
         })
     }
 
@@ -50,13 +53,33 @@ impl Credentials {
             .unwrap_or_default()
             .try_into()
             .map_err(|_| anyhow!("saved password too long"))?;
-        Ok(Some(Self { ssid, password }))
+        let channel = nvs.get_u8("channel")?;
+        Ok(Some(Self {
+            ssid,
+            password,
+            channel,
+        }))
     }
 
     pub fn save(&self, nvs: EspDefaultNvsPartition) -> Result<()> {
         let nvs = EspNvs::new(nvs, NAMESPACE, true)?;
         nvs.set_str("ssid", &self.ssid)?;
         nvs.set_str("password", &self.password)?;
+        nvs.remove("channel")?;
+        Ok(())
+    }
+
+    /// Save the channel of the current connection if it changed.
+    pub fn save_channel(
+        &mut self,
+        nvs: EspDefaultNvsPartition,
+        wifi: &BlockingWifi<EspWifi<'static>>,
+    ) -> Result<()> {
+        let channel = wifi.wifi().get_ap_info()?.channel;
+        if self.channel != Some(channel) {
+            EspNvs::new(nvs, NAMESPACE, true)?.set_u8("channel", channel)?;
+            self.channel = Some(channel);
+        }
         Ok(())
     }
 
@@ -73,6 +96,12 @@ impl Credentials {
                 AuthMethod::None
             } else {
                 AuthMethod::WPA2Personal
+            },
+            channel: self.channel,
+            scan_method: if self.channel.is_some() {
+                ScanMethod::FastScan
+            } else {
+                ScanMethod::default()
             },
             ..Default::default()
         }))?;
