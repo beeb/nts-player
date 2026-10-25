@@ -1,4 +1,4 @@
-use std::{thread, time::Duration};
+use std::{sync::Arc, thread, time::Duration};
 
 use anyhow::Result;
 use esp_idf_svc::{
@@ -9,10 +9,12 @@ use esp_idf_svc::{
 };
 
 use crate::{
+    input::Ui,
     led::{Color, Led},
     wifi::Credentials,
 };
 
+mod input;
 mod led;
 mod portal;
 mod wifi;
@@ -31,7 +33,7 @@ fn main() {
     let mut led = None;
     if let Err(e) = run(&mut led) {
         log::error!("{e:?}");
-        if let Some(led) = &mut led {
+        if let Some(led) = &led {
             led.set(Color::DBG_RED).ok();
         }
         thread::sleep(Duration::from_secs(5));
@@ -40,9 +42,10 @@ fn main() {
 }
 
 /// Run the app, storing the LED in `led` so that `main` can still use it on error.
-fn run(led: &mut Option<Led>) -> Result<()> {
+fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
     let peripherals = Peripherals::take()?;
-    let led = led.insert(Led::new(peripherals.pins.gpio38)?);
+    let led = led.insert(Arc::new(Led::new(peripherals.pins.gpio38)?));
+    Ui::spawn(peripherals.pins.gpio0, led.clone())?;
     let sysloop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
     let mut wifi = BlockingWifi::wrap(

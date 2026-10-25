@@ -1,3 +1,5 @@
+use std::sync::{Mutex, PoisonError};
+
 use anyhow::Result;
 use esp_idf_svc::hal::gpio::OutputPin;
 use ws2812_esp32_rmt_driver::Ws2812Esp32RmtDriver;
@@ -12,6 +14,7 @@ pub struct Color {
 
 impl Color {
     // debug LED (onboard the waveshare dev board) can be super dim
+    pub const OFF: Self = Self { r: 0, g: 0, b: 0 };
     pub const DBG_RED: Self = Self { r: 1, g: 0, b: 0 };
     pub const DBG_YELLOW: Self = Self { r: 1, g: 1, b: 0 };
     pub const DBG_GREEN: Self = Self { r: 0, g: 1, b: 0 };
@@ -19,16 +22,18 @@ impl Color {
 }
 
 /// A WS2812 RGB LED on a data pin.
-pub struct Led(Ws2812Esp32RmtDriver<'static>);
+pub struct Led(Mutex<Ws2812Esp32RmtDriver<'static>>);
 
 impl Led {
     pub fn new(pin: impl OutputPin + 'static) -> Result<Self> {
-        Ok(Self(Ws2812Esp32RmtDriver::new(pin)?))
+        Ok(Self(Mutex::new(Ws2812Esp32RmtDriver::new(pin)?)))
     }
 
-    pub fn set(&mut self, color: Color) -> Result<()> {
+    pub fn set(&self, color: Color) -> Result<()> {
         // the onboard LED expects RGB order
         self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
             .write_blocking([color.r, color.g, color.b].into_iter())?;
         Ok(())
     }
