@@ -41,15 +41,12 @@ impl RingBuffer {
         self.cond.notify_all();
     }
 
-    /// Read up to `out.len()` bytes, blocking until at least one byte is available.
-    pub fn read(&self, out: &mut [u8]) -> usize {
+    /// Move up to `max` bytes to the end of `out`, blocking until at least one byte is available.
+    pub fn read(&self, out: &mut Vec<u8>, max: usize) {
         let mut buf = self.wait_until(|b| !b.is_empty());
-        let n = out.len().min(buf.len());
-        for (o, b) in out.iter_mut().zip(buf.drain(..n)) {
-            *o = b;
-        }
+        let n = max.min(buf.len());
+        out.extend(buf.drain(..n));
         self.cond.notify_all();
-        n
     }
 
     /// Block until the buffer holds at least `n` bytes.

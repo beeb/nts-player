@@ -10,11 +10,14 @@ name = "nts-player"
 
 [dependencies]
 anyhow = "1.0.104"
+bytemuck = "1.25.2"
 edge-captive = { version = "0.8.0", default-features = false }
 esp-idf-svc = "0.53.0"
 form_urlencoded = "1.2.2"
 heapless = "0.9.3"
 log = "0.4.34"
+# no `wide`: it crashes the Xtensa LLVM backend at opt-level 2+, and Xtensa has no SIMD for it anyway
+nanomp3 = { version = "0.2.0", default-features = false, features = ["std", "layer12"] }
 ws2812-esp32-rmt-driver = "0.15.0"
 
 [build-dependencies]

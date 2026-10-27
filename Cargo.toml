@@ -18,3 +18,16 @@ debug = true  # this does not increase the size in flash
 
 [profile.release]
 opt-level = "s"
+
+# the decoder is DSP code, size-optimizing it makes it much slower
+[profile.dev.package.nanomp3]
+opt-level = 3
+
+[profile.dev.package.nanomp3-core]
+opt-level = 3
+
+[profile.release.package.nanomp3]
+opt-level = 3
+
+[profile.release.package.nanomp3-core]
+opt-level = 3

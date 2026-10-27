@@ -1,8 +1,4 @@
-use std::{
-    sync::Arc,
-    thread,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, thread, time::Duration};
 
 use anyhow::Result;
 use esp_idf_svc::{
@@ -13,6 +9,7 @@ use esp_idf_svc::{
 };
 
 use crate::{
+    audio::{I2sPins, Player},
     buffer::RingBuffer,
     input::Ui,
     led::{Color, Led},
@@ -20,6 +17,7 @@ use crate::{
     wifi::Credentials,
 };
 
+mod audio;
 mod buffer;
 mod input;
 mod led;
@@ -33,11 +31,6 @@ const PORTAL_TIMEOUT: Duration = Duration::from_mins(5);
 
 /// About 5 s of audio at 256 kbps.
 const BUFFER_SIZE: usize = 160 * 1024;
-
-/// Fake consumer: 4000 bytes every 125 ms is 32 000 B/s, the stream bitrate.
-const READ_SIZE: usize = 4000;
-const READ_INTERVAL: Duration = Duration::from_millis(125);
-const LOG_INTERVAL: Duration = Duration::from_secs(5);
 
 fn main() {
     // It is necessary to call this function once. Otherwise, some patches to the runtime
@@ -105,25 +98,17 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
 
     let buffer = Arc::new(RingBuffer::new(BUFFER_SIZE));
     Stream::spawn(0, buffer.clone(), nvs)?;
-    // never returns, which also keeps `wifi` alive
-    consume(&buffer)
-}
-
-/// Stand-in for the decoder: drain the buffer at the stream bitrate and log the fill level.
-fn consume(buffer: &RingBuffer) -> ! {
-    let mut chunk = vec![0; READ_SIZE];
-    let mut last_log = Instant::now();
+    Player::spawn(
+        buffer,
+        I2sPins {
+            i2s: peripherals.i2s0,
+            bck: peripherals.pins.gpio5.degrade_input_output(),
+            din: peripherals.pins.gpio6.degrade_output(),
+            lrck: peripherals.pins.gpio7.degrade_input_output(),
+        },
+    )?;
+    // keep `wifi` alive
     loop {
-        buffer.wait_level(buffer.capacity() / 2);
-        log::info!("buffer half full, playing");
-        while buffer.len() > 0 {
-            buffer.read(&mut chunk);
-            if last_log.elapsed() >= LOG_INTERVAL {
-                log::info!("buffer: {} / {} bytes", buffer.len(), buffer.capacity());
-                last_log = Instant::now();
-            }
-            thread::sleep(READ_INTERVAL);
-        }
-        log::warn!("buffer underrun");
+        thread::park();
     }
 }
