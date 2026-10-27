@@ -11,9 +11,10 @@ use esp_idf_svc::{
 use crate::{
     audio::{I2sPins, Player},
     buffer::RingBuffer,
-    input::Ui,
+    input::{InputPins, Ui},
     led::{Color, Led},
-    stream::Stream,
+    settings::Settings,
+    stream::{Stream, Tuner},
     wifi::Credentials,
 };
 
@@ -23,6 +24,7 @@ mod input;
 mod led;
 mod portal;
 mod prelude;
+mod settings;
 mod stream;
 mod wifi;
 
@@ -56,9 +58,21 @@ fn main() {
 fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
     let peripherals = Peripherals::take()?;
     let led = led.insert(Arc::new(Led::new(peripherals.pins.gpio38)?));
-    Ui::spawn(peripherals.pins.gpio0, led.clone())?;
-    let sysloop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
+    let settings = Settings::load(nvs.clone())?;
+    let tuner = Arc::new(Tuner::new(settings.station));
+    Ui::spawn(
+        InputPins {
+            left: peripherals.pins.gpio10.degrade_input(),
+            right: peripherals.pins.gpio11.degrade_input(),
+            push: peripherals.pins.gpio12.degrade_input(),
+        },
+        led.clone(),
+        tuner.clone(),
+        settings,
+        nvs.clone(),
+    )?;
+    let sysloop = EspSystemEventLoop::take()?;
     let mut wifi = BlockingWifi::wrap(
         EspWifi::new(peripherals.modem, sysloop.clone(), Some(nvs.clone()))?,
         sysloop,
@@ -98,7 +112,7 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
     }
 
     let buffer = Arc::new(RingBuffer::new(BUFFER_SIZE));
-    Stream::spawn(0, buffer.clone(), nvs)?;
+    Stream::spawn(tuner, buffer.clone(), nvs)?;
     Player::spawn(
         buffer,
         I2sPins {

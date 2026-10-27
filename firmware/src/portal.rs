@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use esp_idf_svc::{
     hal::reset::restart,
     http::{
@@ -77,7 +77,7 @@ pub fn run(
         // fits the longest valid input with every byte percent-encoded
         let mut body = [0; 512];
         let len = try_read_full(&mut req, &mut body).map_err(|(e, _)| e)?;
-        let Some(creds) = Credentials::from_form(&body[..len]) else {
+        let Some(creds) = Credentials::from_form(body.get(..len).context("body too long")?) else {
             req.into_status_response(400)?
                 .write_all(b"Invalid network or password")?;
             return Ok(());
@@ -153,12 +153,12 @@ fn dns(ip: Ipv4Addr) -> Result<()> {
         let (len, src) = socket.recv_from(&mut request)?;
         // malformed requests are skipped
         if let Ok(len) = edge_captive::reply(
-            &request[..len],
+            request.get(..len).context("request too long")?,
             &ip.octets(),
             Duration::from_mins(1),
             &mut response,
         ) {
-            socket.send_to(&response[..len], src)?;
+            socket.send_to(response.get(..len).context("response too long")?, src)?;
         }
     }
 }

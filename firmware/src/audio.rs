@@ -34,21 +34,6 @@ const READAHEAD: usize = 16 * 1024;
 
 const LOG_INTERVAL: Duration = Duration::from_secs(5);
 
-/// The I2S peripheral and pins for the player.
-pub struct I2sPins {
-    /// Inter-IC Sound device.
-    pub i2s: I2S0<'static>,
-
-    /// Bit clock pin.
-    pub bck: AnyIOPin<'static>,
-
-    /// Data pin.
-    pub din: AnyOutputPin<'static>,
-
-    /// Word select pin.
-    pub lrck: AnyIOPin<'static>,
-}
-
 /// The decode thread, playing MP3 from the ring buffer to I2S.
 pub struct Player<'d> {
     /// The MP3 stream downloaded from the network.
@@ -66,14 +51,9 @@ pub struct Player<'d> {
 
     /// To check the decoding throughput.
     stats: Stats,
-}
 
-/// Decode timing since the last log line.
-struct Stats {
-    frames: u32,
-    total: Duration,
-    max: Duration,
-    since: Instant,
+    /// Generation of the ring buffer bytes in `readahead`.
+    generation: u32,
 }
 
 impl<'d> Player<'d> {
@@ -106,6 +86,7 @@ impl<'d> Player<'d> {
             readahead: Vec::with_capacity(READAHEAD),
             pcm: vec![0; MAX_SAMPLES_PER_FRAME],
             stats: Stats::new(),
+            generation: 0,
         }
     }
 
@@ -155,18 +136,45 @@ impl<'d> Player<'d> {
         }
     }
 
-    /// Fill up the read-ahead buffer from the ring buffer, waiting for half full after an underrun.
+    /// Fill up the read-ahead buffer from the ring buffer, waiting for half full after an underrun or a station change.
     fn fill(&mut self) {
         while self.readahead.len() < READAHEAD {
-            if self.buffer.len() == 0 {
+            // an empty buffer after a station change is not an underrun
+            if self.buffer.len() == 0 && self.buffer.generation() == self.generation {
                 log::warn!("buffer underrun");
                 self.buffer.wait_level(self.buffer.capacity() / 2);
                 log::info!("buffer half full, playing");
             }
             let max = READAHEAD.saturating_sub(self.readahead.len());
-            self.buffer.read(&mut self.readahead, max);
+            let start = self.readahead.len();
+            let generation = self.buffer.read(&mut self.readahead, max);
+            if generation != self.generation {
+                // the bytes before `start` belong to the previous station
+                self.generation = generation;
+                self.readahead.drain(..start);
+                mute();
+                log::info!("station changed, refilling");
+                self.buffer.wait_level(self.buffer.capacity() / 2);
+                log::info!("buffer half full, playing");
+                unmute();
+            }
         }
     }
+}
+
+/// The I2S peripheral and pins for the player.
+pub struct I2sPins {
+    /// Inter-IC Sound device.
+    pub i2s: I2S0<'static>,
+
+    /// Bit clock pin.
+    pub bck: AnyIOPin<'static>,
+
+    /// Data pin.
+    pub din: AnyOutputPin<'static>,
+
+    /// Word select pin.
+    pub lrck: AnyIOPin<'static>,
 }
 
 impl I2sPins {
@@ -191,6 +199,14 @@ impl I2sPins {
         i2s.tx_enable()?;
         Ok(i2s)
     }
+}
+
+/// Decode timing since the last log line.
+struct Stats {
+    frames: u32,
+    total: Duration,
+    max: Duration,
+    since: Instant,
 }
 
 impl Stats {
@@ -220,3 +236,9 @@ impl Stats {
         }
     }
 }
+
+/// Silence the output. Does nothing until the DAC's XSMT pin is wired.
+fn mute() {}
+
+/// Undo [`mute`]. Does nothing until the DAC's XSMT pin is wired.
+fn unmute() {}

@@ -8,23 +8,177 @@ use anyhow::Result;
 use esp_idf_svc::{
     hal::{
         delay::FreeRtos,
-        gpio::{Input, InputPin, PinDriver, Pull},
+        gpio::{AnyInputPin, Input, PinDriver, Pull},
     },
+    nvs::EspDefaultNvsPartition,
     sys::{
         esp, esp_deep_sleep_start, esp_sleep_enable_ext0_wakeup, esp_wifi_stop, rtc_gpio_pullup_en,
     },
 };
 
-use crate::led::{Color, Led};
+use crate::{
+    led::{Color, Led},
+    settings::{MAX_VOLUME, Settings},
+    stream::{STATION_COUNT, Tuner},
+};
+
+/// Stack size of the input thread, NVS writes need more than the 4 KB default.
+const STACK_SIZE: usize = 8 * 1024;
 
 /// Hold time for putting the device to sleep.
 const LONG_PRESS: Duration = Duration::from_millis(700);
 
-/// Polling interval for the button, in milliseconds.
+/// Time after the last step before a change is applied and saved.
+const SETTLE: Duration = Duration::from_millis(600);
+
+/// Polling interval for the inputs, in milliseconds.
 const POLL_DELAY_MS: u32 = 10;
 
-/// Button debounce time, in milliseconds.
-const DEBOUNCE_MS: u32 = 30;
+/// Number of [`POLL_DELAY_MS`] duration ticks for the switch debounce.
+const DEBOUNCE_TICKS: u32 = 3;
+
+/// The input pins, all active low.
+pub struct InputPins {
+    /// Step -1 (joystick left on the breadboard, encoder A later).
+    pub left: AnyInputPin<'static>,
+
+    /// Step +1 (joystick right on the breadboard, encoder B later).
+    pub right: AnyInputPin<'static>,
+
+    /// Push button for mode switch and deep sleep/wake up.
+    pub push: AnyInputPin<'static>,
+}
+
+/// The input and UI thread state.
+pub struct Ui {
+    left: Switch,
+    right: Switch,
+    push: Switch,
+    led: Arc<Led>,
+    tuner: Arc<Tuner>,
+    nvs: EspDefaultNvsPartition,
+    settings: Settings,
+    mode: Mode,
+    /// Start of the current push.
+    ///
+    /// The first push (waking up the device) does not count, so it's still `None`. Also `None` when the button is
+    /// not pressed.
+    pushed_at: Option<Instant>,
+    /// Time of the last station or volume change that is not applied yet.
+    changed_at: Option<Instant>,
+}
+
+impl Ui {
+    /// Start the input thread.
+    pub fn spawn(
+        pins: InputPins,
+        led: Arc<Led>,
+        tuner: Arc<Tuner>,
+        settings: Settings,
+        nvs: EspDefaultNvsPartition,
+    ) -> Result<()> {
+        let ui = Self {
+            left: Switch::new(pins.left)?,
+            right: Switch::new(pins.right)?,
+            push: Switch::new(pins.push)?,
+            led,
+            tuner,
+            nvs,
+            settings,
+            mode: Mode::Station,
+            pushed_at: None,
+            changed_at: None,
+        };
+        thread::Builder::new()
+            .stack_size(STACK_SIZE)
+            .spawn(move || {
+                if let Err(e) = ui.run() {
+                    log::error!("input thread: {e:?}");
+                }
+            })?;
+        Ok(())
+    }
+
+    fn run(mut self) -> Result<()> {
+        loop {
+            FreeRtos::delay_ms(POLL_DELAY_MS);
+            if self.left.poll() == Some(true) {
+                self.step(Step::Left);
+            }
+            if self.right.poll() == Some(true) {
+                self.step(Step::Right);
+            }
+            match self.push.poll() {
+                Some(true) => self.pushed_at = Some(Instant::now()),
+                // only handle the change if we have a `pushed_at` and clear the timer
+                Some(false) if self.pushed_at.take().is_some() => {
+                    self.mode = self.mode.toggle();
+                    log::info!("mode: {:?}", self.mode);
+                }
+                _ => {}
+            }
+            if self.pushed_at.is_some_and(|t| t.elapsed() >= LONG_PRESS) {
+                return self.sleep();
+            }
+            if self.changed_at.is_some_and(|t| t.elapsed() >= SETTLE) {
+                self.changed_at = None;
+                self.commit();
+            }
+        }
+    }
+
+    /// Move the pending station or the volume by one step.
+    fn step(&mut self, step: Step) {
+        let s = &mut self.settings;
+        match self.mode {
+            Mode::Station => {
+                let n = STATION_COUNT;
+                s.station = match step {
+                    Step::Left => s.station.checked_sub(1).unwrap_or(n - 1),
+                    Step::Right => (s.station + 1) % n,
+                };
+                log::info!("station {} (pending)", s.station);
+            }
+            Mode::Volume => {
+                s.volume = match step {
+                    Step::Left => s.volume.saturating_sub(1),
+                    Step::Right => (s.volume + 1).min(MAX_VOLUME),
+                };
+                log::info!("volume {}/{MAX_VOLUME}", s.volume);
+                // set the DAC volume here once it's wired in, the settle delay is only for saving
+            }
+        }
+        self.changed_at = Some(Instant::now());
+    }
+
+    /// Apply the pending station and save the settings.
+    fn commit(&self) {
+        if self.tuner.get() != self.settings.station {
+            log::info!("tuning to station {}", self.settings.station);
+            self.tuner.set(self.settings.station);
+        }
+        if let Err(e) = self.settings.save(self.nvs.clone()) {
+            log::warn!("could not save settings: {e:?}");
+        }
+    }
+
+    /// Turn everything off, wait for the button release and enter deep sleep.
+    fn sleep(&self) -> Result<()> {
+        log::info!("long press, going to sleep");
+        // turn the LED(s) off to indicate the press was long enough
+        self.led.set(Color::OFF)?;
+        while self.push.pin.is_low() {
+            FreeRtos::delay_ms(POLL_DELAY_MS);
+        }
+        // a bounce at sleep start would wake the device right away
+        FreeRtos::delay_ms(DEBOUNCE_TICKS * POLL_DELAY_MS);
+        unsafe { esp_wifi_stop() };
+        let pin = self.push.pin.pin().into();
+        esp!(unsafe { rtc_gpio_pullup_en(pin) })?;
+        esp!(unsafe { esp_sleep_enable_ext0_wakeup(pin, 0) })?;
+        unsafe { esp_deep_sleep_start() }
+    }
+}
 
 /// Encoder input mode.
 #[derive(Clone, Copy, Debug)]
@@ -45,67 +199,45 @@ impl Mode {
     }
 }
 
-/// The input and UI thread state.
-pub struct Ui {
-    button: PinDriver<'static, Input>,
-    led: Arc<Led>,
-    mode: Mode,
+/// One encoder detent.
+#[derive(Clone, Copy)]
+enum Step {
+    Left,
+    Right,
 }
 
-impl Ui {
-    /// Start the input thread with an active-low push button on `pin`.
-    pub fn spawn(pin: impl InputPin + 'static, led: Arc<Led>) -> Result<()> {
-        let ui = Self {
-            button: PinDriver::input(pin, Pull::Up)?,
-            led,
-            mode: Mode::Station,
-        };
-        thread::spawn(move || {
-            if let Err(e) = ui.run() {
-                log::error!("input thread: {e:?}");
-            }
-        });
-        Ok(())
+/// A debounced active-low switch, sampled on each poll.
+struct Switch {
+    pin: PinDriver<'static, Input>,
+    pressed: bool,
+    /// Number of polls reading the opposite of `pressed`, used for debouncing.
+    count: u32,
+}
+
+impl Switch {
+    fn new(pin: AnyInputPin<'static>) -> Result<Self> {
+        let pin = PinDriver::input(pin, Pull::Up)?;
+        Ok(Self {
+            pressed: pin.is_low(),
+            pin,
+            count: 0,
+        })
     }
 
-    fn run(mut self) -> Result<()> {
-        // ignore the first press (it woke the device)
-        self.wait_release();
-        loop {
-            while self.button.is_high() {
-                FreeRtos::delay_ms(POLL_DELAY_MS);
-            }
-            FreeRtos::delay_ms(DEBOUNCE_MS);
-            let start = Instant::now();
-            while self.button.is_low() {
-                if start.elapsed() >= LONG_PRESS {
-                    return self.sleep();
-                }
-                FreeRtos::delay_ms(POLL_DELAY_MS);
-            }
-            FreeRtos::delay_ms(DEBOUNCE_MS);
-            self.mode = self.mode.toggle();
-            log::info!("mode: {:?}", self.mode);
+    /// Sample the pin.
+    ///
+    /// Returns the new state once a change exceeds the debounce time.
+    fn poll(&mut self) -> Option<bool> {
+        if self.pin.is_low() == self.pressed {
+            self.count = 0;
+            return None;
         }
-    }
-
-    fn wait_release(&self) {
-        while self.button.is_low() {
-            FreeRtos::delay_ms(POLL_DELAY_MS);
+        self.count = self.count.saturating_add(1);
+        if self.count < DEBOUNCE_TICKS {
+            return None;
         }
-        FreeRtos::delay_ms(DEBOUNCE_MS);
-    }
-
-    /// Turn everything off, wait for the button release and enter deep sleep.
-    fn sleep(&self) -> Result<()> {
-        log::info!("long press, going to sleep");
-        // turn the LED(s) off to indicate the press was long enough
-        self.led.set(Color::OFF)?;
-        self.wait_release();
-        unsafe { esp_wifi_stop() };
-        let pin = self.button.pin().into();
-        esp!(unsafe { rtc_gpio_pullup_en(pin) })?;
-        esp!(unsafe { esp_sleep_enable_ext0_wakeup(pin, 0) })?;
-        unsafe { esp_deep_sleep_start() }
+        self.count = 0;
+        self.pressed = !self.pressed;
+        Some(self.pressed)
     }
 }

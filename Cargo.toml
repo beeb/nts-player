@@ -5,6 +5,7 @@ members = ["firmware"]
 [workspace.lints.clippy]
 allow_attributes = "warn"
 expect_used = "deny"
+indexing_slicing = "deny"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 mod_module_files = "warn"
