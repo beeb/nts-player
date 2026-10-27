@@ -28,6 +28,7 @@ mod wifi;
 
 const CONNECT_ATTEMPTS: usize = 3;
 const PORTAL_TIMEOUT: Duration = Duration::from_mins(5);
+const WIFI_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
 /// About 5 s of audio at 256 kbps.
 const BUFFER_SIZE: usize = 160 * 1024;
@@ -107,8 +108,19 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
             lrck: peripherals.pins.gpio7.degrade_input_output(),
         },
     )?;
-    // keep `wifi` alive
+    // keep `wifi` alive and reconnect it when the link drops
     loop {
-        thread::park();
+        thread::sleep(WIFI_CHECK_INTERVAL);
+        if wifi.is_connected()? {
+            continue;
+        }
+        log::warn!("wifi down, reconnecting");
+        if let Err(e) = creds.connect(&mut wifi) {
+            log::warn!("wifi reconnect failed: {e:?}");
+            // the router may have moved to another channel
+            creds.channel = None;
+        } else {
+            log::info!("wifi reconnected");
+        }
     }
 }
