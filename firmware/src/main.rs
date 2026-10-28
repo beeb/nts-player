@@ -122,7 +122,7 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
         log::warn!("could not save wifi channel: {e:?}");
     }
 
-    Stream::spawn(tuner, buffer.clone(), nvs)?;
+    Stream::spawn(tuner, buffer.clone(), status.clone(), nvs)?;
     Player::spawn(
         buffer,
         I2sPins {

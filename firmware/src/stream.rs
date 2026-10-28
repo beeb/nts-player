@@ -18,7 +18,7 @@ use esp_idf_svc::{
     sys::esp_crt_bundle_attach,
 };
 
-use crate::buffer::RingBuffer;
+use crate::{buffer::RingBuffer, status::Status};
 
 /// Stream URLs
 pub const STATIONS: [&str; 18] = [
@@ -103,6 +103,7 @@ pub struct Stream {
     station: u8,
     tuner: Arc<Tuner>,
     buffer: Arc<RingBuffer>,
+    status: Arc<Status>,
     edges: EspNvs<NvsDefault>,
 }
 
@@ -111,12 +112,14 @@ impl Stream {
     pub fn spawn(
         tuner: Arc<Tuner>,
         buffer: Arc<RingBuffer>,
+        status: Arc<Status>,
         nvs: EspDefaultNvsPartition,
     ) -> Result<()> {
         let mut stream = Self {
             station: tuner.get(),
             tuner,
             buffer,
+            status,
             edges: EspNvs::new(nvs, NAMESPACE, true)?,
         };
         thread::Builder::new()
@@ -138,6 +141,7 @@ impl Stream {
                 continue;
             }
             log::warn!("stream stopped: {e:?}, retrying in {backoff:?}");
+            self.status.set_stalled(true);
             // `Tuner::set` unparks us to reduce the wait
             thread::park_timeout(backoff);
             backoff = (backoff * 2).min(MAX_BACKOFF);
@@ -158,6 +162,7 @@ impl Stream {
             }
             self.buffer
                 .write(chunk.get(..n).context("read past the chunk")?);
+            self.status.set_stalled(false);
             if self.tuner.get() != self.station {
                 bail!("station changed");
             }
@@ -217,6 +222,8 @@ impl Stream {
             self.station
         );
         self.station = selected_station;
+        // the new station has not failed yet
+        self.status.set_stalled(false);
         // clearing here, after the last write, avoids keeping bytes from the previous station
         self.buffer.clear();
         true

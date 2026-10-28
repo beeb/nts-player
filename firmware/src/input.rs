@@ -48,7 +48,7 @@ const PORTAL_PERIOD: Duration = Duration::from_secs(3);
 /// Lowest pulse level, as a fraction of the full color out of 255.
 const PULSE_MIN: u8 = 50;
 
-/// Period of the ring blink on a fatal error.
+/// Period of the blink on a fatal error or a stream failure.
 const BLINK_PERIOD: Duration = Duration::from_secs(1);
 
 /// Duration of the spinning animation while connecting to wifi.
@@ -214,6 +214,8 @@ impl Ui {
             Scene::Fatal => self.ring.all(Color::OFF),
             Scene::Portal => self.ring.all(Color::WIFI.scale(wave(t, PORTAL_PERIOD))),
             Scene::Connecting => self.ring.dot(spin(t), Color::WIFI),
+            Scene::Stalled if blink(t) => self.ring.dot(station, Color::STATION),
+            Scene::Stalled => self.ring.dot(station, Color::OFF),
             Scene::Buffering => self
                 .ring
                 .dot(station, Color::STATION.scale(wave(t, PULSE_PERIOD))),
@@ -231,6 +233,7 @@ impl Ui {
             State::Portal => Scene::Portal,
             State::Connecting => Scene::Connecting,
             State::Online => match self.mode {
+                Mode::Station if self.status.is_stalled() => Scene::Stalled,
                 Mode::Station if self.buffer.is_filling() => Scene::Buffering,
                 Mode::Station => Scene::Station,
                 Mode::Volume => Scene::Volume,
@@ -282,6 +285,7 @@ enum Scene {
     Fatal,
     Portal,
     Connecting,
+    Stalled,
     Buffering,
     Station,
     Volume,

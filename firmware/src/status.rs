@@ -1,4 +1,7 @@
-use std::sync::Mutex;
+use std::sync::{
+    Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
 use crate::prelude::OrPanic;
 
@@ -20,14 +23,26 @@ pub enum State {
 }
 
 #[derive(Default)]
-pub struct Status(Mutex<State>);
+pub struct Status {
+    state: Mutex<State>,
+    /// Whether the stream failed since it last received audio.
+    stalled: AtomicBool,
+}
 
 impl Status {
     pub fn get(&self) -> State {
-        *self.0.lock().or_panic("status mutex poisoned")
+        *self.state.lock().or_panic("status mutex poisoned")
     }
 
     pub fn set(&self, state: State) {
-        *self.0.lock().or_panic("status mutex poisoned") = state;
+        *self.state.lock().or_panic("status mutex poisoned") = state;
+    }
+
+    pub fn is_stalled(&self) -> bool {
+        self.stalled.load(Ordering::Relaxed)
+    }
+
+    pub fn set_stalled(&self, stalled: bool) {
+        self.stalled.store(stalled, Ordering::Relaxed);
     }
 }
