@@ -1,10 +1,23 @@
 use std::sync::Mutex;
 
 use anyhow::Result;
-use esp_idf_svc::hal::gpio::OutputPin;
+use esp_idf_svc::hal::{
+    gpio::{Output, OutputPin, PinDriver},
+    rmt::config::{MemoryAccess, TxChannelConfig},
+    units::Hertz,
+};
 use ws2812_esp32_rmt_driver::Ws2812Esp32RmtDriver;
 
-use crate::prelude::OrPanic;
+use crate::{prelude::OrPanic, stream::STATION_COUNT};
+
+/// Number of LEDs on the ring, one per station.
+const RING_LEDS: u8 = STATION_COUNT;
+
+/// Index of the bottom LED, where the volume bar starts.
+const VOLUME_START: u8 = RING_LEDS / 2;
+
+/// Brightness of the lit ring LEDs.
+const BRIGHTNESS: u8 = 16;
 
 /// Color of an RGB LED.
 #[derive(Clone, Copy)]
@@ -21,6 +34,16 @@ impl Color {
     pub const DBG_YELLOW: Self = Self { r: 1, g: 1, b: 0 };
     pub const DBG_GREEN: Self = Self { r: 0, g: 1, b: 0 };
     pub const DBG_BLUE: Self = Self { r: 0, g: 0, b: 1 };
+    pub const STATION: Self = Self {
+        r: BRIGHTNESS,
+        g: 0,
+        b: 0,
+    };
+    pub const VOLUME: Self = Self {
+        r: BRIGHTNESS,
+        g: BRIGHTNESS - BRIGHTNESS / 3,
+        b: 0,
+    };
 }
 
 /// A WS2812 RGB LED on a data pin.
@@ -37,6 +60,69 @@ impl Led {
             .lock()
             .or_panic("LED mutex poisoned")
             .write_blocking([color.r, color.g, color.b].into_iter())?;
+        Ok(())
+    }
+}
+
+/// The ring of WS2812 LEDs around the knob, with its power switch.
+pub struct Ring {
+    driver: Ws2812Esp32RmtDriver<'static>,
+    power: PinDriver<'static, Output>,
+}
+
+impl Ring {
+    /// Power the ring on and turn all its LEDs off.
+    pub fn new(data: impl OutputPin + 'static, power: impl OutputPin + 'static) -> Result<Self> {
+        // a DMA buffer fits all pixels at once
+        // esp-idf-hal 0.47 panics in the ISR when the RMT memory fills up mid-transfer
+        let config = TxChannelConfig {
+            resolution: Hertz(10_000_000),
+            memory_access: MemoryAccess::Direct {
+                memory_block_symbols: 1024,
+            },
+            ..Default::default()
+        };
+        let mut power = PinDriver::output(power)?;
+        power.set_high()?;
+        let mut ring = Self {
+            driver: Ws2812Esp32RmtDriver::new_with_config(data, &config)?,
+            power,
+        };
+        ring.off()?;
+        Ok(ring)
+    }
+
+    /// Light the LED of the given station.
+    pub fn station(&mut self, station: u8) -> Result<()> {
+        self.write(Color::STATION, |i| i == station)
+    }
+
+    /// Light a bar of `volume` LEDs, clockwise from the bottom.
+    pub fn volume(&mut self, volume: u8) -> Result<()> {
+        self.write(Color::VOLUME, |i| {
+            (i + RING_LEDS - VOLUME_START) % RING_LEDS < volume
+        })
+    }
+
+    /// Turn all LEDs off and cut the ring power.
+    pub fn shutdown(&mut self) -> Result<()> {
+        self.off()?;
+        self.power.set_low()?;
+        Ok(())
+    }
+
+    fn off(&mut self) -> Result<()> {
+        self.write(Color::OFF, |_| false)
+    }
+
+    /// Write `color` to the LEDs for which `lit` is true, and turn the others off.
+    fn write(&mut self, color: Color, lit: impl Fn(u8) -> bool) -> Result<()> {
+        // the ring expects GRB order
+        let pixels = (0..RING_LEDS).flat_map(|i| {
+            let c = if lit(i) { color } else { Color::OFF };
+            [c.g, c.r, c.b]
+        });
+        self.driver.write_blocking(pixels)?;
         Ok(())
     }
 }

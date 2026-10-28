@@ -17,7 +17,7 @@ use esp_idf_svc::{
 };
 
 use crate::{
-    led::{Color, Led},
+    led::{Color, Led, Ring},
     settings::{MAX_VOLUME, Settings},
     stream::{STATION_COUNT, Tuner},
 };
@@ -55,6 +55,7 @@ pub struct Ui {
     right: Switch,
     push: Switch,
     led: Arc<Led>,
+    ring: Ring,
     tuner: Arc<Tuner>,
     nvs: EspDefaultNvsPartition,
     settings: Settings,
@@ -73,6 +74,7 @@ impl Ui {
     pub fn spawn(
         pins: InputPins,
         led: Arc<Led>,
+        ring: Ring,
         tuner: Arc<Tuner>,
         settings: Settings,
         nvs: EspDefaultNvsPartition,
@@ -82,6 +84,7 @@ impl Ui {
             right: Switch::new(pins.right)?,
             push: Switch::new(pins.push)?,
             led,
+            ring,
             tuner,
             nvs,
             settings,
@@ -100,6 +103,7 @@ impl Ui {
     }
 
     fn run(mut self) -> Result<()> {
+        self.draw();
         loop {
             FreeRtos::delay_ms(POLL_DELAY_MS);
             if self.left.poll() == Some(true) {
@@ -114,6 +118,7 @@ impl Ui {
                 Some(false) if self.pushed_at.take().is_some() => {
                     self.mode = self.mode.toggle();
                     log::info!("mode: {:?}", self.mode);
+                    self.draw();
                 }
                 _ => {}
             }
@@ -149,6 +154,7 @@ impl Ui {
             }
         }
         self.changed_at = Some(Instant::now());
+        self.draw();
     }
 
     /// Apply the pending station and save the settings.
@@ -162,11 +168,23 @@ impl Ui {
         }
     }
 
+    /// Show the current station or volume on the ring.
+    fn draw(&mut self) {
+        let res = match self.mode {
+            Mode::Station => self.ring.station(self.settings.station),
+            Mode::Volume => self.ring.volume(self.settings.volume),
+        };
+        if let Err(e) = res {
+            log::warn!("could not update LED ring: {e:?}");
+        }
+    }
+
     /// Turn everything off, wait for the button release and enter deep sleep.
-    fn sleep(&self) -> Result<()> {
+    fn sleep(&mut self) -> Result<()> {
         log::info!("long press, going to sleep");
-        // turn the LED(s) off to indicate the press was long enough
+        // turn the LEDs off to indicate the press was long enough
         self.led.set(Color::OFF)?;
+        self.ring.shutdown()?;
         while self.push.pin.is_low() {
             FreeRtos::delay_ms(POLL_DELAY_MS);
         }
