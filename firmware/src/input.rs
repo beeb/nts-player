@@ -30,7 +30,7 @@ const STACK_SIZE: usize = 8 * 1024;
 const LONG_PRESS: Duration = Duration::from_millis(700);
 
 /// Time after the last step before a change is applied and saved.
-const SETTLE: Duration = Duration::from_millis(600);
+const SETTLE: Duration = Duration::from_millis(400);
 
 /// Polling interval for the inputs, in milliseconds.
 const POLL_DELAY_MS: u32 = 10;
