@@ -19,52 +19,38 @@ const RING_LEDS: u8 = STATION_COUNT;
 /// Index of the bottom LED, where the volume bar starts.
 const VOLUME_START: u8 = RING_LEDS / 2;
 
-/// Level of the bottom LED at volume 0, as a fraction of the volume color out of 255.
-const VOLUME_ZERO: u8 = 128;
+/// Level of the bottom LED at volume 0, as a fraction of the volume color.
+const VOLUME_ZERO: f32 = 0.5;
 
-/// Brightness of the lit ring LEDs.
-const BRIGHTNESS: u8 = 16;
+/// Byte value of a full color channel on the ring.
+const BRIGHTNESS: f32 = 16.0;
 
-/// Color of an RGB LED.
+/// Byte value of a full color channel on the onboard LED, which is very bright.
+const DBG_BRIGHTNESS: f32 = 1.0;
+
+/// Color of an RGB LED, with channels from 0 to 1.
 #[derive(Clone, Copy)]
 pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
 }
 
 impl Color {
-    // debug LED (onboard the waveshare dev board) can be super dim
-    pub const OFF: Self = Self { r: 0, g: 0, b: 0 };
-    pub const DBG_RED: Self = Self { r: 1, g: 0, b: 0 };
-    pub const DBG_YELLOW: Self = Self { r: 1, g: 1, b: 0 };
-    pub const DBG_GREEN: Self = Self { r: 0, g: 1, b: 0 };
-    pub const DBG_BLUE: Self = Self { r: 0, g: 0, b: 1 };
-    pub const LIVE: Self = Self {
-        r: BRIGHTNESS - BRIGHTNESS / 3,
-        g: BRIGHTNESS - BRIGHTNESS / 3,
-        b: BRIGHTNESS - BRIGHTNESS / 3,
-    };
-    pub const MIXTAPE: Self = Self {
-        r: BRIGHTNESS,
-        g: 0,
-        b: 0,
-    };
-    pub const VOLUME: Self = Self {
-        r: BRIGHTNESS - BRIGHTNESS / 3,
-        g: BRIGHTNESS / 2,
-        b: 0,
-    };
-    pub const WIFI: Self = Self {
-        r: 0,
-        g: 0,
-        b: BRIGHTNESS,
-    };
-    pub const ERROR: Self = Self {
-        r: BRIGHTNESS,
-        g: 0,
-        b: 0,
-    };
+    pub const OFF: Self = Self::rgb(0.0, 0.0, 0.0);
+    pub const DBG_RED: Self = Self::rgb(1.0, 0.0, 0.0);
+    pub const DBG_YELLOW: Self = Self::rgb(1.0, 1.0, 0.0);
+    pub const DBG_GREEN: Self = Self::rgb(0.0, 1.0, 0.0);
+    pub const DBG_BLUE: Self = Self::rgb(0.0, 0.0, 1.0);
+    pub const LIVE: Self = Self::rgb(0.75, 0.7, 0.7);
+    pub const MIXTAPE: Self = Self::rgb(1.0, 0.0, 0.0);
+    pub const VOLUME: Self = Self::rgb(0.7, 0.5, 0.0);
+    pub const WIFI: Self = Self::rgb(0.0, 0.0, 1.0);
+    pub const ERROR: Self = Self::rgb(1.0, 0.0, 0.0);
+
+    pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
+        Self { r, g, b }
+    }
 
     /// Color of a station's LED, white for the live channels and red for the mixtapes.
     pub fn station(index: u8) -> Self {
@@ -75,16 +61,21 @@ impl Color {
         }
     }
 
-    /// Scale the color by `level / 255`.
-    pub fn scale(self, level: u8) -> Self {
+    /// Scale the color by `level`, from 0 to 1.
+    pub fn scale(self, level: f32) -> Self {
+        Self::rgb(self.r * level, self.g * level, self.b * level)
+    }
+
+    /// Byte values of the channels, with `max` for a full channel.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "truncation is desirable to saturate the u8"
+    )]
+    fn bytes(self, max: f32) -> [u8; 3] {
         // round to nearest, flooring skews the hue at low levels
-        let f =
-            |c: u8| u8::try_from((u16::from(c) * u16::from(level) + 127) / 255).unwrap_or(u8::MAX);
-        Self {
-            r: f(self.r),
-            g: f(self.g),
-            b: f(self.b),
-        }
+        let f = |c: f32| (c * max).round() as u8;
+        [f(self.r), f(self.g), f(self.b)]
     }
 }
 
@@ -101,7 +92,7 @@ impl Led {
         self.0
             .lock()
             .or_panic("LED mutex poisoned")
-            .write_blocking([color.r, color.g, color.b].into_iter())?;
+            .write_blocking(color.bytes(DBG_BRIGHTNESS).into_iter())?;
         Ok(())
     }
 }
@@ -110,8 +101,8 @@ impl Led {
 pub struct Ring {
     driver: Ws2812Esp32RmtDriver<'static>,
     power: PinDriver<'static, Output>,
-    /// Scale of all colors, out of 255.
-    level: u8,
+    /// Scale of all colors, from 0 to 1.
+    level: f32,
 }
 
 impl Ring {
@@ -131,7 +122,7 @@ impl Ring {
         let mut ring = Self {
             driver: Ws2812Esp32RmtDriver::new_with_config(data, &config)?,
             power,
-            level: u8::MAX,
+            level: 1.0,
         };
         ring.off()?;
         Ok(ring)
@@ -158,8 +149,8 @@ impl Ring {
         })
     }
 
-    /// Scale all following writes by `level / 255`, to dim the whole ring.
-    pub fn set_level(&mut self, level: u8) {
+    /// Scale all following writes by `level`, from 0 to 1, to dim the whole ring.
+    pub fn set_level(&mut self, level: f32) {
         self.level = level;
     }
 
@@ -183,7 +174,8 @@ impl Ring {
             } else {
                 Color::OFF
             };
-            [c.g, c.r, c.b]
+            let [r, g, b] = c.bytes(BRIGHTNESS);
+            [g, r, b]
         });
         self.driver.write_blocking(pixels)?;
         Ok(())

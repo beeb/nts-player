@@ -39,8 +39,8 @@ const VOLUME_TIMEOUT: Duration = Duration::from_secs(5);
 /// Time without input before dimming the ring.
 const IDLE_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Ring level when idle, out of 255.
-const IDLE_LEVEL: u8 = 100;
+/// Ring level when idle, from 0 to 1.
+const IDLE_LEVEL: f32 = 0.4;
 
 /// Polling interval for the inputs, in milliseconds.
 const POLL_DELAY_MS: u32 = 10;
@@ -54,8 +54,8 @@ const PULSE_PERIOD: Duration = Duration::from_millis(1500);
 /// Period of the ring pulse while the setup portal runs.
 const PORTAL_PERIOD: Duration = Duration::from_secs(3);
 
-/// Lowest pulse level, as a fraction of the full color out of 255.
-const PULSE_MIN: u8 = 50;
+/// Lowest pulse level, as a fraction of the full color.
+const PULSE_MIN: f32 = 0.2;
 
 /// Period of the blink on a fatal error or a stream failure.
 const BLINK_PERIOD: Duration = Duration::from_secs(1);
@@ -224,7 +224,7 @@ impl Ui {
     /// Draw the current scene on the ring.
     fn draw(&mut self) {
         let idle = self.input_at.elapsed() >= IDLE_TIMEOUT;
-        self.ring.set_level(if idle { IDLE_LEVEL } else { u8::MAX });
+        self.ring.set_level(if idle { IDLE_LEVEL } else { 1.0 });
         let scene = self.scene();
         // restart the animation on each change
         if scene != self.scene {
@@ -357,14 +357,12 @@ impl Switch {
     }
 }
 
-/// Pulse level for [`Color::scale`] at `t`, a triangle wave from 255 down to [`PULSE_MIN`] and back.
-fn wave(t: Duration, period: Duration) -> u8 {
-    let period = period.as_millis();
-    let phase = t.as_millis() % period;
-    // 0 at the middle of the period, `period` at both ends
-    let tri = phase.abs_diff(period / 2) * 2;
-    let range = u128::from(u8::MAX - PULSE_MIN);
-    u8::try_from(u128::from(PULSE_MIN) + tri * range / period).unwrap_or(u8::MAX)
+/// Pulse level for [`Color::scale`] at `t`, a triangle wave from 1 down to [`PULSE_MIN`] and back.
+fn wave(t: Duration, period: Duration) -> f32 {
+    let phase = (t.as_secs_f32() / period.as_secs_f32()).fract();
+    // 0 at the middle of the period, 1 at both ends
+    let tri = (phase - 0.5).abs() * 2.0;
+    PULSE_MIN + tri * (1.0 - PULSE_MIN)
 }
 
 /// Whether the blink is on at `t`.
