@@ -42,6 +42,9 @@ pub const STATIONS: [&str; 18] = [
     "https://stream-mixtape-geo.ntslive.net/mixtape23", // Field Recordings
 ];
 
+/// Number of live channels at the start of [`STATIONS`], the others are mixtapes.
+pub const LIVE_STATIONS: u8 = 2;
+
 /// Number of stations, one per LED.
 #[expect(clippy::cast_possible_truncation, reason = "there are 18 stations")]
 pub const STATION_COUNT: u8 = STATIONS.len() as u8;

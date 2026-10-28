@@ -233,17 +233,16 @@ impl Ui {
         }
         let t = self.scene_start.elapsed();
         let station = self.settings.station;
+        let color = Color::station(station);
         let res = match scene {
             Scene::Fatal if blink(t) => self.ring.all(Color::ERROR),
             Scene::Fatal => self.ring.all(Color::OFF),
             Scene::Portal => self.ring.all(Color::WIFI.scale(wave(t, PORTAL_PERIOD))),
             Scene::Connecting => self.ring.dot(spin(t), Color::WIFI),
-            Scene::Stalled if blink(t) => self.ring.dot(station, Color::STATION),
+            Scene::Stalled if blink(t) => self.ring.dot(station, color),
             Scene::Stalled => self.ring.dot(station, Color::OFF),
-            Scene::Buffering => self
-                .ring
-                .dot(station, Color::STATION.scale(wave(t, PULSE_PERIOD))),
-            Scene::Station => self.ring.dot(station, Color::STATION),
+            Scene::Buffering => self.ring.dot(station, color.scale(wave(t, PULSE_PERIOD))),
+            Scene::Station => self.ring.dot(station, color),
             Scene::Volume => self.ring.volume(self.settings.volume),
         };
         if let Err(e) = res {

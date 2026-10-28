@@ -8,7 +8,10 @@ use esp_idf_svc::hal::{
 };
 use ws2812_esp32_rmt_driver::Ws2812Esp32RmtDriver;
 
-use crate::{prelude::OrPanic, stream::STATION_COUNT};
+use crate::{
+    prelude::OrPanic,
+    stream::{LIVE_STATIONS, STATION_COUNT},
+};
 
 /// Number of LEDs on the ring, one per station.
 const RING_LEDS: u8 = STATION_COUNT;
@@ -37,14 +40,19 @@ impl Color {
     pub const DBG_YELLOW: Self = Self { r: 1, g: 1, b: 0 };
     pub const DBG_GREEN: Self = Self { r: 0, g: 1, b: 0 };
     pub const DBG_BLUE: Self = Self { r: 0, g: 0, b: 1 };
-    pub const STATION: Self = Self {
+    pub const LIVE: Self = Self {
+        r: BRIGHTNESS - BRIGHTNESS / 3,
+        g: BRIGHTNESS - BRIGHTNESS / 3,
+        b: BRIGHTNESS - BRIGHTNESS / 3,
+    };
+    pub const MIXTAPE: Self = Self {
         r: BRIGHTNESS,
         g: 0,
         b: 0,
     };
     pub const VOLUME: Self = Self {
-        r: BRIGHTNESS,
-        g: BRIGHTNESS - BRIGHTNESS / 3,
+        r: BRIGHTNESS - BRIGHTNESS / 3,
+        g: BRIGHTNESS / 2,
         b: 0,
     };
     pub const WIFI: Self = Self {
@@ -57,6 +65,15 @@ impl Color {
         g: 0,
         b: 0,
     };
+
+    /// Color of a station's LED, white for the live channels and red for the mixtapes.
+    pub fn station(index: u8) -> Self {
+        if index < LIVE_STATIONS {
+            Self::LIVE
+        } else {
+            Self::MIXTAPE
+        }
+    }
 
     /// Scale the color by `level / 255`.
     pub fn scale(self, level: u8) -> Self {
