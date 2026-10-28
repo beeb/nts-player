@@ -44,6 +44,16 @@ impl Color {
         g: BRIGHTNESS - BRIGHTNESS / 3,
         b: 0,
     };
+    pub const WIFI: Self = Self {
+        r: 0,
+        g: 0,
+        b: BRIGHTNESS,
+    };
+    pub const ERROR: Self = Self {
+        r: BRIGHTNESS,
+        g: 0,
+        b: 0,
+    };
 
     /// Scale the color by `level / 255`.
     pub fn scale(self, level: u8) -> Self {
@@ -102,9 +112,14 @@ impl Ring {
         Ok(ring)
     }
 
-    /// Light the LED of the given station.
-    pub fn station(&mut self, station: u8, color: Color) -> Result<()> {
-        self.write(color, |i| i == station)
+    /// Light the LED at `index` only.
+    pub fn dot(&mut self, index: u8, color: Color) -> Result<()> {
+        self.write(color, |i| i == index)
+    }
+
+    /// Light all LEDs.
+    pub fn all(&mut self, color: Color) -> Result<()> {
+        self.write(color, |_| true)
     }
 
     /// Light a bar of `volume` LEDs, clockwise from the bottom.

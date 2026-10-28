@@ -20,6 +20,7 @@ use crate::{
     buffer::RingBuffer,
     led::{Color, Led, Ring},
     settings::{MAX_VOLUME, Settings},
+    status::{State, Status},
     stream::{STATION_COUNT, Tuner},
 };
 
@@ -41,8 +42,17 @@ const DEBOUNCE_TICKS: u32 = 3;
 /// Period of the station LED pulse while buffering.
 const PULSE_PERIOD: Duration = Duration::from_millis(1500);
 
-/// Lowest pulse level, as a fraction of the station color out of 255.
+/// Period of the ring pulse while the setup portal runs.
+const PORTAL_PERIOD: Duration = Duration::from_secs(3);
+
+/// Lowest pulse level, as a fraction of the full color out of 255.
 const PULSE_MIN: u8 = 50;
+
+/// Period of the ring blink on a fatal error.
+const BLINK_PERIOD: Duration = Duration::from_secs(1);
+
+/// Duration of the spinning animation while connecting to wifi.
+const SPIN_PERIOD: Duration = Duration::from_secs(1);
 
 /// The input pins, all active low.
 pub struct InputPins {
@@ -65,13 +75,14 @@ pub struct Ui {
     ring: Ring,
     tuner: Arc<Tuner>,
     buffer: Arc<RingBuffer>,
+    status: Arc<Status>,
     nvs: EspDefaultNvsPartition,
     settings: Settings,
     mode: Mode,
-    /// Whether the LEDs were pulsing during the last draw.
-    pulsing: bool,
-    /// Start of the pulse animation.
-    epoch: Instant,
+    /// The scene during the last draw.
+    scene: Scene,
+    /// Start of the current scene, for its animation.
+    scene_start: Instant,
     /// Start of the current push.
     ///
     /// The first push (waking up the device) does not count, so it's still `None`. Also `None` when the button is
@@ -83,12 +94,17 @@ pub struct Ui {
 
 impl Ui {
     /// Start the input thread.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "each argument is a distinct shared handle"
+    )]
     pub fn spawn(
         pins: InputPins,
         led: Arc<Led>,
         ring: Ring,
         tuner: Arc<Tuner>,
         buffer: Arc<RingBuffer>,
+        status: Arc<Status>,
         settings: Settings,
         nvs: EspDefaultNvsPartition,
     ) -> Result<()> {
@@ -100,11 +116,12 @@ impl Ui {
             ring,
             tuner,
             buffer,
+            status,
             nvs,
             settings,
             mode: Mode::Station,
-            pulsing: false,
-            epoch: Instant::now(),
+            scene: Scene::Station,
+            scene_start: Instant::now(),
             pushed_at: None,
             changed_at: None,
         };
@@ -119,7 +136,6 @@ impl Ui {
     }
 
     fn run(mut self) -> Result<()> {
-        self.draw();
         loop {
             FreeRtos::delay_ms(POLL_DELAY_MS);
             if self.left.poll() == Some(true) {
@@ -134,7 +150,6 @@ impl Ui {
                 Some(false) if self.pushed_at.take().is_some() => {
                     self.mode = self.mode.toggle();
                     log::info!("mode: {:?}", self.mode);
-                    self.draw();
                 }
                 _ => {}
             }
@@ -145,10 +160,7 @@ impl Ui {
                 self.changed_at = None;
                 self.commit();
             }
-            // keep animating while buffering, and draw once more after it ends
-            if self.pulsing || self.should_pulse() {
-                self.draw();
-            }
+            self.draw();
         }
     }
 
@@ -174,7 +186,6 @@ impl Ui {
             }
         }
         self.changed_at = Some(Instant::now());
-        self.draw();
     }
 
     /// Apply the pending station and save the settings.
@@ -188,42 +199,43 @@ impl Ui {
         }
     }
 
-    /// Show the current station or volume on the ring.
+    /// Draw the current scene on the ring.
     fn draw(&mut self) {
-        let pulsing = self.should_pulse();
-        // start each pulse at full brightness
-        if pulsing && !self.pulsing {
-            self.epoch = Instant::now();
+        let scene = self.scene();
+        // restart the animation on each change
+        if scene != self.scene {
+            self.scene = scene;
+            self.scene_start = Instant::now();
         }
-        self.pulsing = pulsing;
-        let res = match self.mode {
-            Mode::Station => {
-                let color = if self.pulsing {
-                    Color::STATION.scale(self.pulse())
-                } else {
-                    Color::STATION
-                };
-                self.ring.station(self.settings.station, color)
-            }
-            Mode::Volume => self.ring.volume(self.settings.volume),
+        let t = self.scene_start.elapsed();
+        let station = self.settings.station;
+        let res = match scene {
+            Scene::Fatal if blink(t) => self.ring.all(Color::ERROR),
+            Scene::Fatal => self.ring.all(Color::OFF),
+            Scene::Portal => self.ring.all(Color::WIFI.scale(wave(t, PORTAL_PERIOD))),
+            Scene::Connecting => self.ring.dot(spin(t), Color::WIFI),
+            Scene::Buffering => self
+                .ring
+                .dot(station, Color::STATION.scale(wave(t, PULSE_PERIOD))),
+            Scene::Station => self.ring.dot(station, Color::STATION),
+            Scene::Volume => self.ring.volume(self.settings.volume),
         };
         if let Err(e) = res {
             log::warn!("could not update LED ring: {e:?}");
         }
     }
 
-    fn should_pulse(&self) -> bool {
-        matches!(self.mode, Mode::Station) && self.buffer.is_filling()
-    }
-
-    /// Current pulse level for [`Color::scale`], a triangle wave from [`PULSE_MIN`] to 255 (the full station color).
-    fn pulse(&self) -> u8 {
-        let period = PULSE_PERIOD.as_millis();
-        let phase = self.epoch.elapsed().as_millis() % period;
-        // 0 at the middle of the period, `period` at both ends
-        let tri = phase.abs_diff(period / 2) * 2;
-        let range = u128::from(u8::MAX - PULSE_MIN);
-        u8::try_from(u128::from(PULSE_MIN) + tri * range / period).unwrap_or(u8::MAX)
+    fn scene(&self) -> Scene {
+        match self.status.get() {
+            State::Fatal => Scene::Fatal,
+            State::Portal => Scene::Portal,
+            State::Connecting => Scene::Connecting,
+            State::Online => match self.mode {
+                Mode::Station if self.buffer.is_filling() => Scene::Buffering,
+                Mode::Station => Scene::Station,
+                Mode::Volume => Scene::Volume,
+            },
+        }
     }
 
     /// Turn everything off, wait for the button release and enter deep sleep.
@@ -262,6 +274,17 @@ impl Mode {
             Self::Volume => Self::Station,
         }
     }
+}
+
+/// What the ring shows.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Scene {
+    Fatal,
+    Portal,
+    Connecting,
+    Buffering,
+    Station,
+    Volume,
 }
 
 /// One encoder detent.
@@ -305,4 +328,27 @@ impl Switch {
         self.pressed = !self.pressed;
         Some(self.pressed)
     }
+}
+
+/// Pulse level for [`Color::scale`] at `t`, a triangle wave from 255 down to [`PULSE_MIN`] and back.
+fn wave(t: Duration, period: Duration) -> u8 {
+    let period = period.as_millis();
+    let phase = t.as_millis() % period;
+    // 0 at the middle of the period, `period` at both ends
+    let tri = phase.abs_diff(period / 2) * 2;
+    let range = u128::from(u8::MAX - PULSE_MIN);
+    u8::try_from(u128::from(PULSE_MIN) + tri * range / period).unwrap_or(u8::MAX)
+}
+
+/// Whether the blink is on at `t`.
+fn blink(t: Duration) -> bool {
+    let period = BLINK_PERIOD.as_millis();
+    t.as_millis() % period < period / 2
+}
+
+/// LED index of the spinning dot at `t`.
+fn spin(t: Duration) -> u8 {
+    let period = SPIN_PERIOD.as_millis();
+    let i = t.as_millis() % period * u128::from(STATION_COUNT) / period;
+    u8::try_from(i).unwrap_or(0)
 }

@@ -14,6 +14,7 @@ use crate::{
     input::{InputPins, Ui},
     led::{Color, Led, Ring},
     settings::Settings,
+    status::{State, Status},
     stream::{Stream, Tuner},
     wifi::Credentials,
 };
@@ -25,6 +26,7 @@ mod led;
 mod portal;
 mod prelude;
 mod settings;
+mod status;
 mod stream;
 mod wifi;
 
@@ -44,8 +46,10 @@ fn main() {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let mut led = None;
-    if let Err(e) = run(&mut led) {
+    let status = Arc::new(Status::default());
+    if let Err(e) = run(&mut led, &status) {
         log::error!("{e:?}");
+        status.set(State::Fatal);
         if let Some(led) = &led {
             led.set(Color::DBG_RED).ok();
         }
@@ -55,7 +59,7 @@ fn main() {
 }
 
 /// Run the app, storing the LED in `led` so that `main` can still use it on error.
-fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
+fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
     let peripherals = Peripherals::take()?;
     let led = led.insert(Arc::new(Led::new(peripherals.pins.gpio38)?));
     let nvs = EspDefaultNvsPartition::take()?;
@@ -72,6 +76,7 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
         Ring::new(peripherals.pins.gpio21, peripherals.pins.gpio13)?,
         tuner.clone(),
         buffer.clone(),
+        status.clone(),
         settings,
         nvs.clone(),
     )?;
@@ -84,6 +89,7 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
     let Some(mut creds) = Credentials::load(nvs.clone())? else {
         log::info!("no wifi credentials saved");
         led.set(Color::DBG_BLUE)?;
+        status.set(State::Portal);
         return portal::run(wifi, nvs, None); // stay on portal forever
     };
     led.set(Color::DBG_YELLOW)?;
@@ -102,9 +108,11 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
         // connecting with saved credentials failed, let's show the portal
         // again for a little bit before we retry
         led.set(Color::DBG_BLUE)?;
+        status.set(State::Portal);
         return portal::run(wifi, nvs, Some(PORTAL_TIMEOUT));
     }
     led.set(Color::DBG_GREEN)?;
+    status.set(State::Online);
     log::info!(
         "connected to {}, ip: {}",
         creds.ssid,
@@ -131,12 +139,14 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
             continue;
         }
         log::warn!("wifi down, reconnecting");
+        status.set(State::Connecting);
         if let Err(e) = creds.connect(&mut wifi) {
             log::warn!("wifi reconnect failed: {e:?}");
             // the router may have moved to another channel
             creds.channel = None;
         } else {
             log::info!("wifi reconnected");
+            status.set(State::Online);
         }
     }
 }
