@@ -44,6 +44,16 @@ impl Color {
         g: BRIGHTNESS - BRIGHTNESS / 3,
         b: 0,
     };
+
+    /// Scale the color by `level / 255`.
+    pub fn scale(self, level: u8) -> Self {
+        let f = |c: u8| u8::try_from(u16::from(c) * u16::from(level) / 255).unwrap_or(u8::MAX);
+        Self {
+            r: f(self.r),
+            g: f(self.g),
+            b: f(self.b),
+        }
+    }
 }
 
 /// A WS2812 RGB LED on a data pin.
@@ -93,8 +103,8 @@ impl Ring {
     }
 
     /// Light the LED of the given station.
-    pub fn station(&mut self, station: u8) -> Result<()> {
-        self.write(Color::STATION, |i| i == station)
+    pub fn station(&mut self, station: u8, color: Color) -> Result<()> {
+        self.write(color, |i| i == station)
     }
 
     /// Light a bar of `volume` LEDs, clockwise from the bottom.

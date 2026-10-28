@@ -17,6 +17,7 @@ use esp_idf_svc::{
 };
 
 use crate::{
+    buffer::RingBuffer,
     led::{Color, Led, Ring},
     settings::{MAX_VOLUME, Settings},
     stream::{STATION_COUNT, Tuner},
@@ -36,6 +37,12 @@ const POLL_DELAY_MS: u32 = 10;
 
 /// Number of [`POLL_DELAY_MS`] duration ticks for the switch debounce.
 const DEBOUNCE_TICKS: u32 = 3;
+
+/// Period of the station LED pulse while buffering.
+const PULSE_PERIOD: Duration = Duration::from_millis(1500);
+
+/// Lowest pulse level, as a fraction of the station color out of 255.
+const PULSE_MIN: u8 = 50;
 
 /// The input pins, all active low.
 pub struct InputPins {
@@ -57,9 +64,14 @@ pub struct Ui {
     led: Arc<Led>,
     ring: Ring,
     tuner: Arc<Tuner>,
+    buffer: Arc<RingBuffer>,
     nvs: EspDefaultNvsPartition,
     settings: Settings,
     mode: Mode,
+    /// Whether the LEDs were pulsing during the last draw.
+    pulsing: bool,
+    /// Start of the pulse animation.
+    epoch: Instant,
     /// Start of the current push.
     ///
     /// The first push (waking up the device) does not count, so it's still `None`. Also `None` when the button is
@@ -76,6 +88,7 @@ impl Ui {
         led: Arc<Led>,
         ring: Ring,
         tuner: Arc<Tuner>,
+        buffer: Arc<RingBuffer>,
         settings: Settings,
         nvs: EspDefaultNvsPartition,
     ) -> Result<()> {
@@ -86,9 +99,12 @@ impl Ui {
             led,
             ring,
             tuner,
+            buffer,
             nvs,
             settings,
             mode: Mode::Station,
+            pulsing: false,
+            epoch: Instant::now(),
             pushed_at: None,
             changed_at: None,
         };
@@ -128,6 +144,10 @@ impl Ui {
             if self.changed_at.is_some_and(|t| t.elapsed() >= SETTLE) {
                 self.changed_at = None;
                 self.commit();
+            }
+            // keep animating while buffering, and draw once more after it ends
+            if self.pulsing || self.should_pulse() {
+                self.draw();
             }
         }
     }
@@ -170,13 +190,40 @@ impl Ui {
 
     /// Show the current station or volume on the ring.
     fn draw(&mut self) {
+        let pulsing = self.should_pulse();
+        // start each pulse at full brightness
+        if pulsing && !self.pulsing {
+            self.epoch = Instant::now();
+        }
+        self.pulsing = pulsing;
         let res = match self.mode {
-            Mode::Station => self.ring.station(self.settings.station),
+            Mode::Station => {
+                let color = if self.pulsing {
+                    Color::STATION.scale(self.pulse())
+                } else {
+                    Color::STATION
+                };
+                self.ring.station(self.settings.station, color)
+            }
             Mode::Volume => self.ring.volume(self.settings.volume),
         };
         if let Err(e) = res {
             log::warn!("could not update LED ring: {e:?}");
         }
+    }
+
+    fn should_pulse(&self) -> bool {
+        matches!(self.mode, Mode::Station) && self.buffer.is_filling()
+    }
+
+    /// Current pulse level for [`Color::scale`], a triangle wave from [`PULSE_MIN`] to 255 (the full station color).
+    fn pulse(&self) -> u8 {
+        let period = PULSE_PERIOD.as_millis();
+        let phase = self.epoch.elapsed().as_millis() % period;
+        // 0 at the middle of the period, `period` at both ends
+        let tri = phase.abs_diff(period / 2) * 2;
+        let range = u128::from(u8::MAX - PULSE_MIN);
+        u8::try_from(u128::from(PULSE_MIN) + tri * range / period).unwrap_or(u8::MAX)
     }
 
     /// Turn everything off, wait for the button release and enter deep sleep.

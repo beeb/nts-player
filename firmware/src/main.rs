@@ -61,6 +61,7 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
     let nvs = EspDefaultNvsPartition::take()?;
     let settings = Settings::load(nvs.clone())?;
     let tuner = Arc::new(Tuner::new(settings.station));
+    let buffer = Arc::new(RingBuffer::new(BUFFER_SIZE));
     Ui::spawn(
         InputPins {
             left: peripherals.pins.gpio10.degrade_input(),
@@ -70,6 +71,7 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
         led.clone(),
         Ring::new(peripherals.pins.gpio21, peripherals.pins.gpio13)?,
         tuner.clone(),
+        buffer.clone(),
         settings,
         nvs.clone(),
     )?;
@@ -112,7 +114,6 @@ fn run(led: &mut Option<Arc<Led>>) -> Result<()> {
         log::warn!("could not save wifi channel: {e:?}");
     }
 
-    let buffer = Arc::new(RingBuffer::new(BUFFER_SIZE));
     Stream::spawn(tuner, buffer.clone(), nvs)?;
     Player::spawn(
         buffer,

@@ -18,6 +18,7 @@ impl RingBuffer {
             inner: Mutex::new(Inner {
                 data: VecDeque::with_capacity(capacity),
                 generation: 0,
+                filling: true,
             }),
             cond: Condvar::new(),
             capacity,
@@ -35,6 +36,13 @@ impl RingBuffer {
     /// The current generation, see [`RingBuffer::read`].
     pub fn generation(&self) -> u32 {
         self.lock().generation
+    }
+
+    /// Whether the reader is waiting for the buffer to fill up.
+    ///
+    /// Also true before the first [`RingBuffer::wait_level`].
+    pub fn is_filling(&self) -> bool {
+        self.lock().filling
     }
 
     /// Append all of `data`, blocking until there is room.
@@ -67,7 +75,8 @@ impl RingBuffer {
 
     /// Block until the buffer holds at least `n` bytes.
     pub fn wait_level(&self, n: usize) {
-        drop(self.wait_until(|i| i.data.len() >= n));
+        self.lock().filling = true;
+        self.wait_until(|i| i.data.len() >= n).filling = false;
     }
 
     fn lock(&self) -> MutexGuard<'_, Inner> {
@@ -85,4 +94,5 @@ struct Inner {
     data: VecDeque<u8>,
     /// Incremented by each [`RingBuffer::clear`].
     generation: u32,
+    filling: bool,
 }
