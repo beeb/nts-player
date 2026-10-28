@@ -33,6 +33,9 @@ const LONG_PRESS: Duration = Duration::from_millis(700);
 /// Time after the last step before a change is applied and saved.
 const SETTLE: Duration = Duration::from_millis(400);
 
+/// Go back from volume to station mode automatically after this duration without input.
+const VOLUME_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// Polling interval for the inputs, in milliseconds.
 const POLL_DELAY_MS: u32 = 10;
 
@@ -90,6 +93,8 @@ pub struct Ui {
     pushed_at: Option<Instant>,
     /// Time of the last station or volume change that is not applied yet.
     changed_at: Option<Instant>,
+    /// Time of the last input (press or turn).
+    input_at: Instant,
 }
 
 impl Ui {
@@ -124,6 +129,7 @@ impl Ui {
             scene_start: Instant::now(),
             pushed_at: None,
             changed_at: None,
+            input_at: Instant::now(),
         };
         thread::Builder::new()
             .stack_size(STACK_SIZE)
@@ -144,7 +150,11 @@ impl Ui {
             if self.right.poll() == Some(true) {
                 self.step(Step::Right);
             }
-            match self.push.poll() {
+            let push = self.push.poll();
+            if push.is_some() {
+                self.input_at = Instant::now();
+            }
+            match push {
                 Some(true) => self.pushed_at = Some(Instant::now()),
                 // only handle the change if we have a `pushed_at` and clear the timer
                 Some(false) if self.pushed_at.take().is_some() => {
@@ -152,6 +162,11 @@ impl Ui {
                     log::info!("mode: {:?}", self.mode);
                 }
                 _ => {}
+            }
+            if matches!(self.mode, Mode::Volume) && self.input_at.elapsed() >= VOLUME_TIMEOUT {
+                // switch back to station mode after inactivity
+                self.mode = Mode::Station;
+                log::info!("mode: {:?} (timeout)", self.mode);
             }
             if self.pushed_at.is_some_and(|t| t.elapsed() >= LONG_PRESS) {
                 return self.sleep();
@@ -186,6 +201,7 @@ impl Ui {
             }
         }
         self.changed_at = Some(Instant::now());
+        self.input_at = Instant::now();
     }
 
     /// Apply the pending station and save the settings.
