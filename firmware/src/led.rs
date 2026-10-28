@@ -16,6 +16,9 @@ const RING_LEDS: u8 = STATION_COUNT;
 /// Index of the bottom LED, where the volume bar starts.
 const VOLUME_START: u8 = RING_LEDS / 2;
 
+/// Level of the bottom LED at volume 0, as a fraction of the volume color out of 255.
+const VOLUME_ZERO: u8 = 128;
+
 /// Brightness of the lit ring LEDs.
 const BRIGHTNESS: u8 = 16;
 
@@ -57,7 +60,9 @@ impl Color {
 
     /// Scale the color by `level / 255`.
     pub fn scale(self, level: u8) -> Self {
-        let f = |c: u8| u8::try_from(u16::from(c) * u16::from(level) / 255).unwrap_or(u8::MAX);
+        // round to nearest, flooring skews the hue at low levels
+        let f =
+            |c: u8| u8::try_from((u16::from(c) * u16::from(level) + 127) / 255).unwrap_or(u8::MAX);
         Self {
             r: f(self.r),
             g: f(self.g),
@@ -122,8 +127,12 @@ impl Ring {
         self.write(color, |_| true)
     }
 
-    /// Light a bar of `volume` LEDs, clockwise from the bottom.
+    /// Light a bar of `volume` LEDs clockwise from the bottom, or only a dim bottom LED at 0.
     pub fn volume(&mut self, volume: u8) -> Result<()> {
+        // a dim marker shows that volume mode is on
+        if volume == 0 {
+            return self.dot(VOLUME_START, Color::VOLUME.scale(VOLUME_ZERO));
+        }
         self.write(Color::VOLUME, |i| {
             (i + RING_LEDS - VOLUME_START) % RING_LEDS < volume
         })
