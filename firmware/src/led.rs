@@ -93,6 +93,8 @@ impl Led {
 pub struct Ring {
     driver: Ws2812Esp32RmtDriver<'static>,
     power: PinDriver<'static, Output>,
+    /// Scale of all colors, out of 255.
+    level: u8,
 }
 
 impl Ring {
@@ -112,6 +114,7 @@ impl Ring {
         let mut ring = Self {
             driver: Ws2812Esp32RmtDriver::new_with_config(data, &config)?,
             power,
+            level: u8::MAX,
         };
         ring.off()?;
         Ok(ring)
@@ -138,6 +141,11 @@ impl Ring {
         })
     }
 
+    /// Scale all following writes by `level / 255`, to dim the whole ring.
+    pub fn set_level(&mut self, level: u8) {
+        self.level = level;
+    }
+
     /// Turn all LEDs off and cut the ring power.
     pub fn shutdown(&mut self) -> Result<()> {
         self.off()?;
@@ -153,7 +161,11 @@ impl Ring {
     fn write(&mut self, color: Color, lit: impl Fn(u8) -> bool) -> Result<()> {
         // the ring expects GRB order
         let pixels = (0..RING_LEDS).flat_map(|i| {
-            let c = if lit(i) { color } else { Color::OFF };
+            let c = if lit(i) {
+                color.scale(self.level)
+            } else {
+                Color::OFF
+            };
             [c.g, c.r, c.b]
         });
         self.driver.write_blocking(pixels)?;

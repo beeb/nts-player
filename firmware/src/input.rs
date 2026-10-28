@@ -36,6 +36,12 @@ const SETTLE: Duration = Duration::from_millis(400);
 /// Go back from volume to station mode automatically after this duration without input.
 const VOLUME_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Time without input before dimming the ring.
+const IDLE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Ring level when idle, out of 255.
+const IDLE_LEVEL: u8 = 100;
+
 /// Polling interval for the inputs, in milliseconds.
 const POLL_DELAY_MS: u32 = 10;
 
@@ -217,6 +223,8 @@ impl Ui {
 
     /// Draw the current scene on the ring.
     fn draw(&mut self) {
+        let idle = self.input_at.elapsed() >= IDLE_TIMEOUT;
+        self.ring.set_level(if idle { IDLE_LEVEL } else { u8::MAX });
         let scene = self.scene();
         // restart the animation on each change
         if scene != self.scene {
