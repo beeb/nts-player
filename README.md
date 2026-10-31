@@ -20,18 +20,19 @@ favorite radio by [becoming a supporter](https://www.nts.live/supporters) or
 - 18 stations on one detented encoder, one click per station
 - 18-LED ring around the knob shows the current station (and volume in volume mode)
 - Push the knob to toggle station / volume mode, long-press to sleep, press to wake
-- Line out at up to 2.1 Vrms on 3.5 mm and RCA, wired in parallel
+- Line out at up to about 1.5 Vrms on 3.5 mm and RCA, wired in parallel
   - This is meant as line out, not as headphones output, it expects a load of 1 kOhm or more.
+  - The DAC can reach 2.1 Vrms, but the firmware limits the top volume step to -3 dB.
 - Low standby current: LED ring and DAC are power-switched in deep sleep
 - Powered over USB-C (5 V)
+- Wi-Fi setup through a portal on the `nts-player` access point
 
 ## Repository Layout
 
 ```text
 firmware/   Rust firmware (ESP-IDF, std)
-kicak/      KiCad schematic and PCB for the carrier board
+kicad/      KiCad schematic and PCB for the carrier board
 enclosure/  3d-printable enclosure parts
-docs/       Misc. information
 ```
 
 ## Pin Map
