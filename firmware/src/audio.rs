@@ -143,6 +143,8 @@ impl<'d> Player<'d> {
                 // the bytes before `start` belong to the previous station
                 self.generation = generation;
                 self.readahead.drain(..start);
+                // decoding nothing resets the decoder
+                let _ = self.decoder.decode(&[], &mut self.pcm);
                 if let Err(e) = self.dac.mute() {
                     log::warn!("could not mute: {e:?}");
                 }
