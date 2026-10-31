@@ -68,16 +68,22 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
     let settings = Settings::load(nvs.clone())?;
     let tuner = Arc::new(Tuner::new(settings.station));
     let buffer = Arc::new(RingBuffer::new(BUFFER_SIZE));
-    let dac = Arc::new(Dac::new(DacPins {
-        en: peripherals.pins.gpio14.degrade_output(),
-        xsmt: peripherals.pins.gpio4.degrade_output(),
-        i2s: I2sPins {
-            i2s: peripherals.i2s0,
-            bck: peripherals.pins.gpio5.degrade_input_output(),
-            din: peripherals.pins.gpio6.degrade_output(),
-            lrck: peripherals.pins.gpio7.degrade_input_output(),
+    let dac = Arc::new(Dac::new(
+        DacPins {
+            en: peripherals.pins.gpio14.degrade_output(),
+            xsmt: peripherals.pins.gpio4.degrade_output(),
+            i2c: peripherals.i2c0,
+            sda: peripherals.pins.gpio8.degrade_input_output(),
+            scl: peripherals.pins.gpio9.degrade_input_output(),
+            i2s: I2sPins {
+                i2s: peripherals.i2s0,
+                bck: peripherals.pins.gpio5.degrade_input_output(),
+                din: peripherals.pins.gpio6.degrade_output(),
+                lrck: peripherals.pins.gpio7.degrade_input_output(),
+            },
         },
-    })?);
+        settings.volume,
+    )?);
     Ui::spawn(
         InputPins {
             left: peripherals.pins.gpio10.degrade_input(),

@@ -213,7 +213,10 @@ impl Ui {
                     Step::Right => (s.volume + 1).min(MAX_VOLUME),
                 };
                 log::info!("volume {}/{MAX_VOLUME}", s.volume);
-                // set the DAC volume here once it's wired in, the settle delay is only for saving
+                // the settle delay is only for saving
+                if let Err(e) = self.dac.set_volume(s.volume) {
+                    log::warn!("could not set the volume: {e:?}");
+                }
             }
         }
         self.changed_at = Some(Instant::now());
