@@ -2,6 +2,7 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use esp_idf_svc::hal::{
+    delay::FreeRtos,
     gpio::{Output, OutputPin, PinDriver},
     rmt::config::{MemoryAccess, TxChannelConfig},
     units::Hertz,
@@ -12,6 +13,9 @@ use crate::{
     prelude::OrPanic,
     stream::{LIVE_STATIONS, STATION_COUNT},
 };
+
+/// Time for the ring's power rail to rise before sending data, in milliseconds.
+const RAIL_RISE_MS: u32 = 3;
 
 /// Number of LEDs on the ring, one per station.
 const RING_LEDS: u8 = STATION_COUNT;
@@ -119,6 +123,7 @@ impl Ring {
         };
         let mut power = PinDriver::output(power)?;
         power.set_high()?;
+        FreeRtos::delay_ms(RAIL_RISE_MS);
         let mut ring = Self {
             driver: Ws2812Esp32RmtDriver::new_with_config(data, &config)?,
             power,

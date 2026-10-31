@@ -42,6 +42,9 @@ const IDLE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Ring level when idle, from 0 to 1.
 const IDLE_LEVEL: f32 = 0.4;
 
+/// Number of [`POLL_DELAY_MS`] duration ticks for the ring fade before sleep.
+const FADE_TICKS: u16 = 30;
+
 /// Polling interval for the inputs, in milliseconds.
 const POLL_DELAY_MS: u32 = 10;
 
@@ -101,6 +104,8 @@ pub struct Ui {
     changed_at: Option<Instant>,
     /// Time of the last input (press or turn).
     input_at: Instant,
+    /// Scale of the ring level during the fade before sleep, from 0 to 1.
+    fade: f32,
 }
 
 impl Ui {
@@ -136,6 +141,7 @@ impl Ui {
             pushed_at: None,
             changed_at: None,
             input_at: Instant::now(),
+            fade: 1.0,
         };
         thread::Builder::new()
             .stack_size(STACK_SIZE)
@@ -224,7 +230,8 @@ impl Ui {
     /// Draw the current scene on the ring.
     fn draw(&mut self) {
         let idle = self.input_at.elapsed() >= IDLE_TIMEOUT;
-        self.ring.set_level(if idle { IDLE_LEVEL } else { 1.0 });
+        let level = if idle { IDLE_LEVEL } else { 1.0 };
+        self.ring.set_level(level * self.fade);
         let scene = self.scene();
         // restart the animation on each change
         if scene != self.scene {
@@ -269,6 +276,11 @@ impl Ui {
         log::info!("long press, going to sleep");
         // turn the LEDs off to indicate the press was long enough
         self.led.set(Color::OFF)?;
+        for tick in (0..FADE_TICKS).rev() {
+            self.fade = f32::from(tick) / f32::from(FADE_TICKS);
+            self.draw();
+            FreeRtos::delay_ms(POLL_DELAY_MS);
+        }
         self.ring.shutdown()?;
         while self.push.pin.is_low() {
             FreeRtos::delay_ms(POLL_DELAY_MS);
