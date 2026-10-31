@@ -33,6 +33,7 @@ favorite radio by [becoming a supporter](https://www.nts.live/supporters) or
 firmware/   Rust firmware (ESP-IDF, std)
 kicad/      KiCad schematic and PCB for the carrier board
 enclosure/  3d-printable enclosure parts
+docs/       Datasheet links and devkit pinout
 ```
 
 ## Pin Map

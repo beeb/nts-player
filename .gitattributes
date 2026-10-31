@@ -11,3 +11,4 @@ fp-lib-table text eol=lf
 
 *.step text eol=lf
 *.wrl text eol=lf
+*.pdf binary
