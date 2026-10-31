@@ -7,24 +7,12 @@ use std::{
 
 use anyhow::{Context, Result};
 use esp_idf_svc::{
-    hal::{
-        cpu::Core,
-        delay::BLOCK,
-        gpio::{AnyIOPin, AnyOutputPin},
-        i2s::{
-            I2S0, I2sDriver, I2sTx,
-            config::{
-                Config, DataBitWidth, SlotBitWidth, SlotMode, StdClkConfig, StdConfig,
-                StdGpioConfig, StdSlotConfig,
-            },
-        },
-        task::thread::ThreadSpawnConfiguration,
-    },
+    hal::{cpu::Core, task::thread::ThreadSpawnConfiguration},
     sys::uxTaskGetStackHighWaterMark,
 };
 use nanomp3::{DecodeError, Decoder, FrameInfo, MAX_SAMPLES_PER_FRAME};
 
-use crate::buffer::RingBuffer;
+use crate::{buffer::RingBuffer, dac::Dac};
 
 /// Stack size of the decode thread (we use roughly 44 KB).
 const STACK_SIZE: usize = 49 * 1024;
@@ -38,6 +26,9 @@ const LOG_INTERVAL: Duration = Duration::from_secs(5);
 pub struct Player<'d> {
     /// The MP3 stream downloaded from the network.
     buffer: Arc<RingBuffer>,
+
+    /// The DAC and its I2S output.
+    dac: Arc<Dac>,
 
     /// The nanomp3 decoder.
     decoder: &'d mut Decoder,
@@ -57,8 +48,8 @@ pub struct Player<'d> {
 }
 
 impl<'d> Player<'d> {
-    /// Start the decode thread on core 1, reading MP3 from `buffer` and writing PCM to I2S on `pins`.
-    pub fn spawn(buffer: Arc<RingBuffer>, pins: I2sPins) -> Result<()> {
+    /// Start the decode thread on core 1, reading MP3 from `buffer` and writing PCM to `dac`.
+    pub fn spawn(buffer: Arc<RingBuffer>, dac: Arc<Dac>) -> Result<()> {
         ThreadSpawnConfiguration {
             name: Some(c"player"),
             pin_to_core: Some(Core::Core1),
@@ -69,8 +60,8 @@ impl<'d> Player<'d> {
             .stack_size(STACK_SIZE)
             .spawn(move || {
                 let mut decoder = Decoder::new();
-                let mut player = Player::new(buffer, &mut decoder);
-                if let Err(e) = player.run(pins) {
+                let mut player = Player::new(buffer, dac, &mut decoder);
+                if let Err(e) = player.run() {
                     log::error!("player thread: {e:?}");
                 }
             });
@@ -79,9 +70,10 @@ impl<'d> Player<'d> {
         Ok(())
     }
 
-    fn new(buffer: Arc<RingBuffer>, decoder: &'d mut Decoder) -> Self {
+    fn new(buffer: Arc<RingBuffer>, dac: Arc<Dac>, decoder: &'d mut Decoder) -> Self {
         Self {
             buffer,
+            dac,
             decoder,
             readahead: Vec::with_capacity(READAHEAD),
             pcm: vec![0; MAX_SAMPLES_PER_FRAME],
@@ -90,13 +82,12 @@ impl<'d> Player<'d> {
         }
     }
 
-    fn run(&mut self, pins: I2sPins) -> Result<()> {
+    fn run(&mut self) -> Result<()> {
         self.buffer.wait_level(self.buffer.capacity() / 2);
         log::info!("buffer half full, playing");
         let first = self.next_frame();
         let mut rate = first.sample_rate;
-        log::info!("{rate} Hz, starting I2S");
-        let mut i2s = pins.driver(rate)?;
+        self.dac.start(rate)?;
         let free = unsafe { uxTaskGetStackHighWaterMark(ptr::null_mut()) };
         log::info!("player stack: {free} bytes never used");
         let mut info = first;
@@ -109,7 +100,7 @@ impl<'d> Player<'d> {
                 .get(..n_samples)
                 .context("decoder produced more samples than the PCM buffer holds")?;
             // re-interpret the slice of i16 samples as a slice of u8 bytes (double the length)
-            i2s.write_all(bytemuck::cast_slice(samples), BLOCK)?;
+            self.dac.write(bytemuck::cast_slice(samples))?;
             info = self.next_frame();
             if info.sample_rate != rate {
                 log::warn!("sample rate changed to {} Hz, ignored", info.sample_rate);
@@ -152,52 +143,17 @@ impl<'d> Player<'d> {
                 // the bytes before `start` belong to the previous station
                 self.generation = generation;
                 self.readahead.drain(..start);
-                mute();
+                if let Err(e) = self.dac.mute() {
+                    log::warn!("could not mute: {e:?}");
+                }
                 log::info!("station changed, refilling");
                 self.buffer.wait_level(self.buffer.capacity() / 2);
                 log::info!("buffer half full, playing");
-                unmute();
+                if let Err(e) = self.dac.unmute() {
+                    log::warn!("could not unmute: {e:?}");
+                }
             }
         }
-    }
-}
-
-/// The I2S peripheral and pins for the player.
-pub struct I2sPins {
-    /// Inter-IC Sound device.
-    pub i2s: I2S0<'static>,
-
-    /// Bit clock pin.
-    pub bck: AnyIOPin<'static>,
-
-    /// Data pin.
-    pub din: AnyOutputPin<'static>,
-
-    /// Word select pin.
-    pub lrck: AnyIOPin<'static>,
-}
-
-impl I2sPins {
-    /// Open the I2S output at `rate`: 16-bit stereo samples in 32-bit slots, so BCK = 64 x fs.
-    fn driver(self, rate: u32) -> Result<I2sDriver<'static, I2sTx>> {
-        let config = StdConfig::new(
-            // send silence on underrun instead of repeating the last DMA buffer
-            Config::new().auto_clear(true),
-            StdClkConfig::from_sample_rate_hz(rate),
-            StdSlotConfig::philips_slot_default(DataBitWidth::Bits16, SlotMode::Stereo)
-                .slot_bit_width(SlotBitWidth::Bits32),
-            StdGpioConfig::default(),
-        );
-        let mut i2s = I2sDriver::new_std_tx(
-            self.i2s,
-            &config,
-            self.bck,
-            self.din,
-            AnyIOPin::none(),
-            self.lrck,
-        )?;
-        i2s.tx_enable()?;
-        Ok(i2s)
     }
 }
 
@@ -236,9 +192,3 @@ impl Stats {
         }
     }
 }
-
-/// Silence the output. Does nothing until the DAC's XSMT pin is wired.
-fn mute() {}
-
-/// Undo [`mute`]. Does nothing until the DAC's XSMT pin is wired.
-fn unmute() {}

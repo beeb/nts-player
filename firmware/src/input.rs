@@ -18,6 +18,7 @@ use esp_idf_svc::{
 
 use crate::{
     buffer::RingBuffer,
+    dac::Dac,
     led::{Color, Led, Ring},
     settings::{MAX_VOLUME, Settings},
     status::{State, Status},
@@ -87,6 +88,7 @@ pub struct Ui {
     ring: Ring,
     tuner: Arc<Tuner>,
     buffer: Arc<RingBuffer>,
+    dac: Arc<Dac>,
     status: Arc<Status>,
     nvs: EspDefaultNvsPartition,
     settings: Settings,
@@ -120,6 +122,7 @@ impl Ui {
         ring: Ring,
         tuner: Arc<Tuner>,
         buffer: Arc<RingBuffer>,
+        dac: Arc<Dac>,
         status: Arc<Status>,
         settings: Settings,
         nvs: EspDefaultNvsPartition,
@@ -132,6 +135,7 @@ impl Ui {
             ring,
             tuner,
             buffer,
+            dac,
             status,
             nvs,
             settings,
@@ -274,6 +278,7 @@ impl Ui {
     /// Turn everything off, wait for the button release and enter deep sleep.
     fn sleep(&mut self) -> Result<()> {
         log::info!("long press, going to sleep");
+        self.dac.power_down()?;
         // turn the LEDs off to indicate the press was long enough
         self.led.set(Color::OFF)?;
         for tick in (0..FADE_TICKS).rev() {

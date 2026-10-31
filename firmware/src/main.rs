@@ -9,8 +9,9 @@ use esp_idf_svc::{
 };
 
 use crate::{
-    audio::{I2sPins, Player},
+    audio::Player,
     buffer::RingBuffer,
+    dac::{Dac, DacPins, I2sPins},
     input::{InputPins, Ui},
     led::{Color, Led, Ring},
     settings::Settings,
@@ -21,6 +22,7 @@ use crate::{
 
 mod audio;
 mod buffer;
+mod dac;
 mod input;
 mod led;
 mod portal;
@@ -66,6 +68,16 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
     let settings = Settings::load(nvs.clone())?;
     let tuner = Arc::new(Tuner::new(settings.station));
     let buffer = Arc::new(RingBuffer::new(BUFFER_SIZE));
+    let dac = Arc::new(Dac::new(DacPins {
+        en: peripherals.pins.gpio14.degrade_output(),
+        xsmt: peripherals.pins.gpio4.degrade_output(),
+        i2s: I2sPins {
+            i2s: peripherals.i2s0,
+            bck: peripherals.pins.gpio5.degrade_input_output(),
+            din: peripherals.pins.gpio6.degrade_output(),
+            lrck: peripherals.pins.gpio7.degrade_input_output(),
+        },
+    })?);
     Ui::spawn(
         InputPins {
             left: peripherals.pins.gpio10.degrade_input(),
@@ -76,6 +88,7 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
         Ring::new(peripherals.pins.gpio21, peripherals.pins.gpio13)?,
         tuner.clone(),
         buffer.clone(),
+        dac.clone(),
         status.clone(),
         settings,
         nvs.clone(),
@@ -123,15 +136,7 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
     }
 
     Stream::spawn(tuner, buffer.clone(), status.clone(), nvs)?;
-    Player::spawn(
-        buffer,
-        I2sPins {
-            i2s: peripherals.i2s0,
-            bck: peripherals.pins.gpio5.degrade_input_output(),
-            din: peripherals.pins.gpio6.degrade_output(),
-            lrck: peripherals.pins.gpio7.degrade_input_output(),
-        },
-    )?;
+    Player::spawn(buffer, dac)?;
     // keep `wifi` alive and reconnect it when the link drops
     loop {
         thread::sleep(WIFI_CHECK_INTERVAL);

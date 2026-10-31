@@ -15,7 +15,9 @@ use crate::{
 };
 
 /// Time for the ring's power rail to rise before sending data, in milliseconds.
-const RAIL_RISE_MS: u32 = 3;
+///
+/// This is 2 ticks at 100 Hz, because a 1 tick delay can end right away.
+const RAIL_RISE_MS: u32 = 20;
 
 /// Number of LEDs on the ring, one per station.
 const RING_LEDS: u8 = STATION_COUNT;
