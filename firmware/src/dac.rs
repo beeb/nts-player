@@ -19,7 +19,7 @@ use esp_idf_svc::hal::{
     units::Hertz,
 };
 
-use crate::{prelude::OrPanic, settings::MAX_VOLUME};
+use crate::{prelude::OrPanic, settings::Volume};
 
 /// Time for the DAC's power-on reset after enabling its supply, in milliseconds.
 ///
@@ -77,7 +77,7 @@ const VOLUME_0_DB: u8 = 48;
 
 const VOLUME_MUTE: u8 = 255;
 
-/// Attenuation at [`MAX_VOLUME`].
+/// Attenuation at [`Volume::MAX`].
 const OUTPUT_LEVEL_DB: u8 = 3;
 
 /// Attenuation of each volume step.
@@ -151,8 +151,8 @@ pub struct Dac(Mutex<Inner>);
 impl Dac {
     /// Take the control pins, leaving the DAC unpowered and muted.
     ///
-    /// The DAC uses volume step `volume` once started.
-    pub fn new(pins: DacPins, volume: u8) -> Result<Self> {
+    /// The DAC uses `volume` once started.
+    pub fn new(pins: DacPins, volume: Volume) -> Result<Self> {
         let mut en = PinDriver::output(pins.en)?;
         en.set_low()?;
         let mut xsmt = PinDriver::output(pins.xsmt)?;
@@ -227,10 +227,9 @@ impl Dac {
         Ok(())
     }
 
-    /// Set the volume step, from 0 (mute) to [`MAX_VOLUME`].
-    pub fn set_volume(&self, step: u8) -> Result<()> {
+    pub fn set_volume(&self, volume: Volume) -> Result<()> {
         let mut d = self.lock();
-        d.volume = step;
+        d.volume = volume;
         if d.i2s.is_some() {
             d.write_volume()?;
         }
@@ -270,8 +269,8 @@ struct Inner {
     xsmt: PinDriver<'static, Output>,
     /// The I2C bus, until [`Dac::power_down`].
     i2c: Option<I2cDriver<'static>>,
-    /// The current volume step.
-    volume: u8,
+    /// The current volume.
+    volume: Volume,
     /// The I2S pins, until [`Dac::start`] uses them.
     i2s_pins: Option<I2sPins>,
     /// The running I2S output.
@@ -296,12 +295,13 @@ impl Inner {
         self.write_reg(REG_VOLUME_RIGHT, value)
     }
 
-    /// The volume register value for the current step.
+    /// The volume register value for the current volume.
     fn volume_value(&self) -> u8 {
-        if self.volume == 0 {
+        let step = self.volume.get();
+        if step == 0 {
             return VOLUME_MUTE;
         }
-        let db = OUTPUT_LEVEL_DB + MAX_VOLUME.saturating_sub(self.volume) * STEP_DB;
+        let db = OUTPUT_LEVEL_DB + (Volume::MAX.get() - step) * STEP_DB;
         VOLUME_0_DB + 2 * db
     }
 

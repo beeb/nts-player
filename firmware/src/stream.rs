@@ -18,7 +18,7 @@ use esp_idf_svc::{
     sys::esp_crt_bundle_attach,
 };
 
-use crate::{buffer::RingBuffer, status::Status};
+use crate::{buffer::RingBuffer, led::RING_LEDS, status::Status};
 
 /// Stream URLs
 pub const STATIONS: [&str; 18] = [
@@ -45,9 +45,12 @@ pub const STATIONS: [&str; 18] = [
 /// Number of live channels at the start of [`STATIONS`], the others are mixtapes.
 pub const LIVE_STATIONS: u8 = 2;
 
-/// Number of stations, one per LED.
+/// Number of stations, each shown on the LED at its index.
 #[expect(clippy::cast_possible_truncation, reason = "there are 18 stations")]
 pub const STATION_COUNT: u8 = STATIONS.len() as u8;
+
+// each station needs an LED
+const _: () = assert!(STATION_COUNT <= RING_LEDS);
 
 /// Stack size of the network thread, TLS needs a lot.
 const STACK_SIZE: usize = 12 * 1024;

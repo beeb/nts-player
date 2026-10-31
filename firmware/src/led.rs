@@ -9,18 +9,15 @@ use esp_idf_svc::hal::{
 };
 use ws2812_esp32_rmt_driver::Ws2812Esp32RmtDriver;
 
-use crate::{
-    prelude::OrPanic,
-    stream::{LIVE_STATIONS, STATION_COUNT},
-};
+use crate::{prelude::OrPanic, settings::Volume, stream::LIVE_STATIONS};
 
 /// Time for the ring's power rail to rise before sending data, in milliseconds.
 ///
 /// This is 2 ticks at 100 Hz, because a 1 tick delay can end right away.
 const RAIL_RISE_MS: u32 = 20;
 
-/// Number of LEDs on the ring, one per station.
-const RING_LEDS: u8 = STATION_COUNT;
+/// Number of LEDs on the ring.
+pub const RING_LEDS: u8 = 18;
 
 /// Index of the bottom LED, where the volume bar starts.
 const VOLUME_START: u8 = RING_LEDS / 2;
@@ -146,7 +143,8 @@ impl Ring {
     }
 
     /// Light a bar of `volume` LEDs clockwise from the bottom, or only a dim bottom LED at 0.
-    pub fn volume(&mut self, volume: u8) -> Result<()> {
+    pub fn volume(&mut self, volume: Volume) -> Result<()> {
+        let volume = volume.get();
         // a dim marker shows that volume mode is on
         if volume == 0 {
             return self.dot(VOLUME_START, Color::VOLUME.scale(VOLUME_ZERO));

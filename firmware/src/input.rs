@@ -19,8 +19,8 @@ use esp_idf_svc::{
 use crate::{
     buffer::RingBuffer,
     dac::Dac,
-    led::{Color, Led, Ring},
-    settings::{MAX_VOLUME, Settings},
+    led::{Color, Led, RING_LEDS, Ring},
+    settings::{Settings, Volume},
     status::{State, Status},
     stream::{STATION_COUNT, Tuner},
 };
@@ -209,10 +209,10 @@ impl Ui {
             }
             Mode::Volume => {
                 s.volume = match step {
-                    Step::Left => s.volume.saturating_sub(1),
-                    Step::Right => (s.volume + 1).min(MAX_VOLUME),
+                    Step::Left => s.volume.down(),
+                    Step::Right => s.volume.up(),
                 };
-                log::info!("volume {}/{MAX_VOLUME}", s.volume);
+                log::info!("volume {}/{}", s.volume.get(), Volume::MAX.get());
                 // the settle delay is only for saving
                 if let Err(e) = self.dac.set_volume(s.volume) {
                     log::warn!("could not set the volume: {e:?}");
@@ -394,6 +394,6 @@ fn blink(t: Duration) -> bool {
 /// LED index of the spinning dot at `t`.
 fn spin(t: Duration) -> u8 {
     let period = SPIN_PERIOD.as_millis();
-    let i = t.as_millis() % period * u128::from(STATION_COUNT) / period;
+    let i = t.as_millis() % period * u128::from(RING_LEDS) / period;
     u8::try_from(i).unwrap_or(0)
 }
