@@ -86,8 +86,8 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
     )?);
     Ui::spawn(
         InputPins {
-            left: peripherals.pins.gpio10.degrade_input(),
-            right: peripherals.pins.gpio11.degrade_input(),
+            enc_a: peripherals.pins.gpio10.degrade_input(),
+            enc_b: peripherals.pins.gpio11.degrade_input(),
             push: peripherals.pins.gpio12.degrade_input(),
         },
         led.clone(),

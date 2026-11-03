@@ -8,7 +8,14 @@ use anyhow::Result;
 use esp_idf_svc::{
     hal::{
         delay::FreeRtos,
-        gpio::{AnyInputPin, Input, PinDriver, Pull},
+        gpio::{AnyInputPin, Input, Pin, PinDriver, Pull},
+        pcnt::{
+            PcntUnitDriver,
+            config::{
+                ChannelConfig, ChannelEdgeAction, ChannelLevelAction, GlitchFilterConfig,
+                UnitConfig,
+            },
+        },
     },
     nvs::EspDefaultNvsPartition,
     sys::{
@@ -49,6 +56,12 @@ const FADE_TICKS: u16 = 30;
 /// Polling interval for the inputs, in milliseconds.
 const POLL_DELAY_MS: u32 = 10;
 
+/// Quadrature edges per encoder detent (18 pulses and 18 detents per turn).
+const EDGES_PER_DETENT: i32 = 4;
+
+/// Glitch filter for the encoder signals, at most 12.7 us on the ESP32-S3.
+const ENCODER_GLITCH: Duration = Duration::from_micros(10);
+
 /// Number of [`POLL_DELAY_MS`] duration ticks for the switch debounce.
 const DEBOUNCE_TICKS: u32 = 3;
 
@@ -69,11 +82,11 @@ const SPIN_PERIOD: Duration = Duration::from_secs(1);
 
 /// The input pins, all active low.
 pub struct InputPins {
-    /// Step -1 (joystick left on the breadboard, encoder A later).
-    pub left: AnyInputPin<'static>,
+    /// Encoder channel A.
+    pub enc_a: AnyInputPin<'static>,
 
-    /// Step +1 (joystick right on the breadboard, encoder B later).
-    pub right: AnyInputPin<'static>,
+    /// Encoder channel B.
+    pub enc_b: AnyInputPin<'static>,
 
     /// Push button for mode switch and deep sleep/wake up.
     pub push: AnyInputPin<'static>,
@@ -81,8 +94,7 @@ pub struct InputPins {
 
 /// The input and UI thread state.
 pub struct Ui {
-    left: Switch,
-    right: Switch,
+    encoder: Encoder,
     push: Switch,
     led: Arc<Led>,
     ring: Ring,
@@ -128,8 +140,7 @@ impl Ui {
         nvs: EspDefaultNvsPartition,
     ) -> Result<()> {
         let ui = Self {
-            left: Switch::new(pins.left)?,
-            right: Switch::new(pins.right)?,
+            encoder: Encoder::new(pins.enc_a, pins.enc_b)?,
             push: Switch::new(pins.push)?,
             led,
             ring,
@@ -160,11 +171,8 @@ impl Ui {
     fn run(mut self) -> Result<()> {
         loop {
             FreeRtos::delay_ms(POLL_DELAY_MS);
-            if self.left.poll() == Some(true) {
-                self.step(Step::Left);
-            }
-            if self.right.poll() == Some(true) {
-                self.step(Step::Right);
+            if let Some(step) = self.encoder.poll()? {
+                self.step(step);
             }
             let push = self.push.poll();
             if push.is_some() {
@@ -339,6 +347,59 @@ enum Scene {
 enum Step {
     Left,
     Right,
+}
+
+/// A quadrature encoder decoded by the PCNT (pulse counter) peripheral.
+///
+/// Edges are counted in hardware to avoid losing steps between polls.
+struct Encoder {
+    unit: PcntUnitDriver<'static>,
+    /// Count at the last emitted step.
+    pos: i32,
+}
+
+impl Encoder {
+    fn new(a: AnyInputPin<'static>, b: AnyInputPin<'static>) -> Result<Self> {
+        let limit = i32::from(i16::MAX);
+        let mut unit = PcntUnitDriver::new(&UnitConfig {
+            low_limit: -limit,
+            high_limit: limit,
+            accum_count: true,
+            ..Default::default()
+        })?;
+        unit.set_glitch_filter(Some(&GlitchFilterConfig {
+            max_glitch: ENCODER_GLITCH,
+            ..Default::default()
+        }))?;
+        // each pin is the edge input of one channel and the level input of the other
+        let (a2, b2) = unsafe { (AnyInputPin::steal(a.pin()), AnyInputPin::steal(b.pin())) };
+        unit.add_channel(Some(a), Some(b), &ChannelConfig::default())?
+            .set_edge_action(ChannelEdgeAction::Decrease, ChannelEdgeAction::Increase)?
+            .set_level_action(ChannelLevelAction::Keep, ChannelLevelAction::Inverse)?;
+        unit.add_channel(Some(b2), Some(a2), &ChannelConfig::default())?
+            .set_edge_action(ChannelEdgeAction::Increase, ChannelEdgeAction::Decrease)?
+            .set_level_action(ChannelLevelAction::Keep, ChannelLevelAction::Inverse)?;
+        unit.enable()?;
+        unit.add_watch_points_and_clear([-limit, limit])?;
+        unit.start()?;
+        Ok(Self { unit, pos: 0 })
+    }
+
+    /// Read the counter.
+    ///
+    /// Returns one step once the count moved a full detent away from the last step.
+    fn poll(&mut self) -> Result<Option<Step>> {
+        let delta = self.unit.get_count()? - self.pos;
+        if delta >= EDGES_PER_DETENT {
+            self.pos += EDGES_PER_DETENT;
+            Ok(Some(Step::Right))
+        } else if delta <= -EDGES_PER_DETENT {
+            self.pos -= EDGES_PER_DETENT;
+            Ok(Some(Step::Left))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 /// A debounced active-low switch, sampled on each poll.
