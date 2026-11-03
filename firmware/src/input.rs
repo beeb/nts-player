@@ -235,6 +235,10 @@ impl Ui {
     fn commit(&self) {
         if self.tuner.get() != self.settings.station {
             log::info!("tuning to station {}", self.settings.station);
+            if let Err(e) = self.dac.mute() {
+                log::warn!("could not mute: {e:?}");
+            }
+            self.buffer.clear();
             self.tuner.set(self.settings.station);
         }
         if let Err(e) = self.settings.save(self.nvs.clone()) {
