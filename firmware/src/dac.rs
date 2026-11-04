@@ -129,7 +129,10 @@ impl I2sPins {
             StdSlotConfig::philips_slot_default(DataBitWidth::Bits16, SlotMode::Stereo)
                 .slot_bit_width(SlotBitWidth::Bits32)
                 // the default follows the 16-bit samples, which skews the LRCK duty cycle
-                .ws_width(32),
+                .ws_width(32)
+                // esp-idf-hal defaults to right alignment, which puts the 16-bit samples in the
+                // low half of the 32-bit slot where the DAC reads them as near silence
+                .left_align(true),
             StdGpioConfig::default(),
         );
         let mut i2s = I2sDriver::new_std_tx(
