@@ -16,10 +16,12 @@ use esp_idf_svc::{
                 UnitConfig,
             },
         },
+        reset::restart,
     },
     nvs::EspDefaultNvsPartition,
     sys::{
-        esp, esp_deep_sleep_start, esp_sleep_enable_ext0_wakeup, esp_wifi_stop, rtc_gpio_pullup_en,
+        esp, esp_deep_sleep_start, esp_sleep_enable_ext0_wakeup, esp_wifi_stop, nvs_flash_erase,
+        rtc_gpio_pullup_en,
     },
 };
 
@@ -37,6 +39,12 @@ const STACK_SIZE: usize = 8 * 1024;
 
 /// Hold time for putting the device to sleep.
 const LONG_PRESS: Duration = Duration::from_millis(700);
+
+/// Hold time of the boot button for erasing NVS and restarting.
+const RESET_PRESS: Duration = Duration::from_secs(5);
+
+/// Color of the onboard LED blink while the boot button is held, then solid once NVS is erased.
+const RESET_WARNING: Color = Color::DBG_RED;
 
 /// Time after the last step before a change is applied and saved.
 const SETTLE: Duration = Duration::from_millis(400);
@@ -90,12 +98,16 @@ pub struct InputPins {
 
     /// Push button for mode switch and deep sleep/wake up.
     pub push: AnyInputPin<'static>,
+
+    /// Boot button of the devkit, long-press to erase NVS and restart.
+    pub boot: AnyInputPin<'static>,
 }
 
 /// The input and UI thread state.
 pub struct Ui {
     encoder: Encoder,
     push: Switch,
+    boot: Switch,
     led: Arc<Led>,
     ring: Ring,
     tuner: Arc<Tuner>,
@@ -114,6 +126,8 @@ pub struct Ui {
     /// The first push (waking up the device) does not count, so it's still `None`. Also `None` when the button is
     /// not pressed.
     pushed_at: Option<Instant>,
+    /// Start of the current boot button press.
+    boot_pushed_at: Option<Instant>,
     /// Time of the last station or volume change that is not applied yet.
     changed_at: Option<Instant>,
     /// Time of the last input (press or turn).
@@ -142,6 +156,7 @@ impl Ui {
         let ui = Self {
             encoder: Encoder::new(pins.enc_a, pins.enc_b)?,
             push: Switch::new(pins.push)?,
+            boot: Switch::new(pins.boot)?,
             led,
             ring,
             tuner,
@@ -154,6 +169,7 @@ impl Ui {
             scene: Scene::Station,
             scene_start: Instant::now(),
             pushed_at: None,
+            boot_pushed_at: None,
             changed_at: None,
             input_at: Instant::now(),
             fade: 1.0,
@@ -194,6 +210,22 @@ impl Ui {
             }
             if self.pushed_at.is_some_and(|t| t.elapsed() >= LONG_PRESS) {
                 return self.sleep();
+            }
+            if let Some(pressed) = self.boot.poll() {
+                self.boot_pushed_at = pressed.then(Instant::now);
+                if !pressed && let Err(e) = self.led.restore() {
+                    log::warn!("could not restore the LED: {e:?}");
+                }
+            }
+            if let Some(t) = self.boot_pushed_at.map(|t| t.elapsed()) {
+                if t >= RESET_PRESS {
+                    return self.reset();
+                }
+                // warn that holding longer erases everything
+                let color = if blink(t) { RESET_WARNING } else { Color::OFF };
+                if let Err(e) = self.led.show(color) {
+                    log::warn!("could not update the LED: {e:?}");
+                }
             }
             if self.changed_at.is_some_and(|t| t.elapsed() >= SETTLE) {
                 self.changed_at = None;
@@ -312,6 +344,20 @@ impl Ui {
         esp!(unsafe { rtc_gpio_pullup_en(pin) })?;
         esp!(unsafe { esp_sleep_enable_ext0_wakeup(pin, 0) })?;
         unsafe { esp_deep_sleep_start() }
+    }
+
+    /// Erase the whole NVS partition, wait for the boot button release and restart.
+    fn reset(&mut self) -> Result<()> {
+        log::warn!("boot button held, erasing NVS");
+        self.ring.set_level(1.0);
+        self.ring.all(Color::ERROR)?;
+        self.led.show(RESET_WARNING)?;
+        esp!(unsafe { nvs_flash_erase() })?;
+        // the boot button is a strapping pin, don't restart while it's low
+        while self.boot.pin.is_low() {
+            FreeRtos::delay_ms(POLL_DELAY_MS);
+        }
+        restart();
     }
 }
 

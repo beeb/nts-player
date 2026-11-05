@@ -83,18 +83,46 @@ impl Color {
 }
 
 /// A WS2812 RGB LED on a data pin.
-pub struct Led(Mutex<Ws2812Esp32RmtDriver<'static>>);
+pub struct Led(Mutex<LedState>);
 
 impl Led {
     pub fn new(pin: impl OutputPin + 'static) -> Result<Self> {
-        Ok(Self(Mutex::new(Ws2812Esp32RmtDriver::new(pin)?)))
+        Ok(Self(Mutex::new(LedState {
+            driver: Ws2812Esp32RmtDriver::new(pin)?,
+            color: Color::OFF,
+        })))
     }
 
+    /// Set the color and remember it for [`Led::restore`].
     pub fn set(&self, color: Color) -> Result<()> {
+        let mut state = self.0.lock().or_panic("LED mutex poisoned");
+        state.color = color;
+        state.write(color)
+    }
+
+    /// Show a temporary color, until the next [`Led::set`] or [`Led::restore`].
+    pub fn show(&self, color: Color) -> Result<()> {
+        self.0.lock().or_panic("LED mutex poisoned").write(color)
+    }
+
+    /// Show the last color given to [`Led::set`] again.
+    pub fn restore(&self) -> Result<()> {
+        let mut state = self.0.lock().or_panic("LED mutex poisoned");
+        let color = state.color;
+        state.write(color)
+    }
+}
+
+struct LedState {
+    driver: Ws2812Esp32RmtDriver<'static>,
+    /// The last color given to [`Led::set`].
+    color: Color,
+}
+
+impl LedState {
+    fn write(&mut self, color: Color) -> Result<()> {
         // the onboard LED expects RGB order
-        self.0
-            .lock()
-            .or_panic("LED mutex poisoned")
+        self.driver
             .write_blocking(color.bytes(DBG_BRIGHTNESS).into_iter())?;
         Ok(())
     }

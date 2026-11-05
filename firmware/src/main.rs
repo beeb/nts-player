@@ -89,6 +89,7 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
             enc_a: peripherals.pins.gpio10.degrade_input(),
             enc_b: peripherals.pins.gpio11.degrade_input(),
             push: peripherals.pins.gpio12.degrade_input(),
+            boot: peripherals.pins.gpio0.degrade_input(),
         },
         led.clone(),
         Ring::new(peripherals.pins.gpio21, peripherals.pins.gpio13)?,

@@ -20,6 +20,7 @@ favorite radio by [becoming a supporter](https://www.nts.live/supporters) or
 - 18 stations on one detented encoder, one click per station
 - 18-LED ring around the knob shows the current station (and volume in volume mode)
 - Push the knob to toggle station / volume mode, long-press to sleep, press to wake
+- Hold the devkit boot button for 5 s to erase all settings (Wi-Fi included) and restart
 - Line out at up to about 1.5 Vrms on 3.5 mm and RCA, wired in parallel
   - This is meant as line out, not as headphones output, it expects a load of 1 kOhm or more.
   - The DAC can reach 2.1 Vrms, but the firmware limits the top volume step to -3 dB.
