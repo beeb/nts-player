@@ -6,7 +6,7 @@ use crate::{led::RING_LEDS, stream::STATION_COUNT};
 const NAMESPACE: &str = "settings";
 
 /// Volume step, from 0 (mute) to [`Volume::MAX`], one LED per step.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Volume(u8);
 
 impl Volume {
@@ -17,6 +17,16 @@ impl Volume {
     /// Create a volume from `step`, stopping at [`Volume::MAX`].
     pub fn new(step: u8) -> Self {
         Self(step.min(Self::MAX.0))
+    }
+
+    /// Builds the volume step closest to `value`, clamped to the allowed range.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "the value is rounded and clamped to the volume range first"
+    )]
+    pub fn from_f32(value: f32) -> Self {
+        Self::new(value.round().clamp(0.0, f32::from(Self::MAX.0)) as u8)
     }
 
     /// One step louder, stopping at [`Volume::MAX`].

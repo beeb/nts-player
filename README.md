@@ -24,9 +24,11 @@ favorite radio by [becoming a supporter](https://www.nts.live/supporters) or
 - Line out at up to about 1.5 Vrms on 3.5 mm and RCA, wired in parallel
   - This is meant as line out, not as headphones output, it expects a load of 1 kOhm or more.
   - The DAC can reach 2.1 Vrms, but the firmware limits the top volume step to -3 dB.
-- Low standby current: LED ring and DAC are power-switched in deep sleep
+- Low sleep current (about 0.6 mA at 5 V): LED ring and DAC are power-switched in deep sleep
+- Home Assistant "off" is a standby that keeps Wi-Fi on and breathes the station LED dimly, press the knob or turn it on in HA to wake
 - Powered over USB-C (5 V)
 - Wi-Fi setup through a portal on the `nts-player` access point
+- Home Assistant control (power, station, volume) through the built-in ESPHome integration
 
 ## Repository Layout
 

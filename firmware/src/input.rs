@@ -1,5 +1,5 @@
 use std::{
-    sync::Arc,
+    sync::{Arc, Mutex, mpsc::Receiver},
     thread,
     time::{Duration, Instant},
 };
@@ -26,9 +26,11 @@ use esp_idf_svc::{
 };
 
 use crate::{
+    api::{Command, Snapshot},
     buffer::RingBuffer,
     dac::Dac,
     led::{Color, Led, RING_LEDS, Ring},
+    prelude::OrPanic,
     settings::{Settings, Volume},
     status::{State, Status},
     stream::{STATION_COUNT, Tuner},
@@ -60,6 +62,12 @@ const IDLE_LEVEL: f32 = 0.4;
 
 /// Number of [`POLL_DELAY_MS`] duration ticks for the ring fade before sleep.
 const FADE_TICKS: u16 = 30;
+
+/// Ring level in standby, from 0 to 1.
+const STANDBY_LEVEL: f32 = 0.5;
+
+/// Period of the station LED breathing in standby.
+const STANDBY_PERIOD: Duration = Duration::from_secs(4);
 
 /// Polling interval for the inputs, in milliseconds.
 const POLL_DELAY_MS: u32 = 10;
@@ -96,7 +104,7 @@ pub struct InputPins {
     /// Encoder channel B.
     pub enc_b: AnyInputPin<'static>,
 
-    /// Push button for mode switch and deep sleep/wake up.
+    /// Push button for mode switch, deep sleep and wake up.
     pub push: AnyInputPin<'static>,
 
     /// Boot button of the devkit, long-press to erase NVS and restart.
@@ -116,6 +124,10 @@ pub struct Ui {
     status: Arc<Status>,
     nvs: EspDefaultNvsPartition,
     settings: Settings,
+    /// The state shown in HA.
+    snapshot: Arc<Mutex<Snapshot>>,
+    /// Changes requested by HA.
+    commands: Receiver<Command>,
     mode: Mode,
     /// The scene during the last draw.
     scene: Scene,
@@ -134,6 +146,8 @@ pub struct Ui {
     input_at: Instant,
     /// Scale of the ring level during the fade before sleep, from 0 to 1.
     fade: f32,
+    /// Whether the device is in standby: audio and stream off, wifi on.
+    standby: bool,
 }
 
 impl Ui {
@@ -151,6 +165,8 @@ impl Ui {
         dac: Arc<Dac>,
         status: Arc<Status>,
         settings: Settings,
+        snapshot: Arc<Mutex<Snapshot>>,
+        commands: Receiver<Command>,
         nvs: EspDefaultNvsPartition,
     ) -> Result<()> {
         let ui = Self {
@@ -165,6 +181,8 @@ impl Ui {
             status,
             nvs,
             settings,
+            snapshot,
+            commands,
             mode: Mode::Station,
             scene: Scene::Station,
             scene_start: Instant::now(),
@@ -173,6 +191,7 @@ impl Ui {
             changed_at: None,
             input_at: Instant::now(),
             fade: 1.0,
+            standby: false,
         };
         thread::Builder::new()
             .stack_size(STACK_SIZE)
@@ -187,7 +206,12 @@ impl Ui {
     fn run(mut self) -> Result<()> {
         loop {
             FreeRtos::delay_ms(POLL_DELAY_MS);
-            if let Some(step) = self.encoder.poll()? {
+            while let Ok(cmd) = self.commands.try_recv() {
+                self.command(cmd)?;
+            }
+            if let Some(step) = self.encoder.poll()?
+                && !self.standby
+            {
                 self.step(step);
             }
             let push = self.push.poll();
@@ -196,6 +220,8 @@ impl Ui {
             }
             match push {
                 Some(true) => self.pushed_at = Some(Instant::now()),
+                // a short press wakes from standby, a long press goes to sleep
+                Some(false) if self.standby && self.pushed_at.is_some() => self.wake(),
                 // only handle the change if we have a `pushed_at` and clear the timer
                 Some(false) if self.pushed_at.take().is_some() => {
                     self.mode = self.mode.toggle();
@@ -232,6 +258,11 @@ impl Ui {
                 self.commit();
             }
             self.draw();
+            *self.snapshot.lock().or_panic("snapshot mutex poisoned") = Snapshot {
+                power: !self.standby,
+                station: self.settings.station,
+                volume: self.settings.volume,
+            };
         }
     }
 
@@ -263,9 +294,34 @@ impl Ui {
         self.input_at = Instant::now();
     }
 
+    /// Apply a change requested by HA.
+    fn command(&mut self, cmd: Command) -> Result<()> {
+        log::info!("HA command: {cmd:?}");
+        match cmd {
+            Command::Power(true) if self.standby => self.wake(),
+            Command::Power(false) if !self.standby => return self.standby(),
+            Command::Power(_) => return Ok(()),
+            Command::Station(station) => self.settings.station = station,
+            Command::Volume(volume) => {
+                self.settings.volume = volume;
+                // show the new volume on the ring, just like when rotating encoder
+                if !self.standby {
+                    self.mode = Mode::Volume;
+                }
+                // the DAC keeps the value for the next start
+                if let Err(e) = self.dac.set_volume(volume) {
+                    log::warn!("could not set the volume: {e:?}");
+                }
+            }
+        }
+        self.changed_at = Some(Instant::now());
+        self.input_at = Instant::now();
+        Ok(())
+    }
+
     /// Apply the pending station and save the settings.
     fn commit(&self) {
-        if self.tuner.get() != self.settings.station {
+        if !self.standby && self.tuner.get() != self.settings.station {
             log::info!("tuning to station {}", self.settings.station);
             if let Err(e) = self.dac.mute() {
                 log::warn!("could not mute: {e:?}");
@@ -281,7 +337,13 @@ impl Ui {
     /// Draw the current scene on the ring.
     fn draw(&mut self) {
         let idle = self.input_at.elapsed() >= IDLE_TIMEOUT;
-        let level = if idle { IDLE_LEVEL } else { 1.0 };
+        let level = if self.standby {
+            STANDBY_LEVEL
+        } else if idle {
+            IDLE_LEVEL
+        } else {
+            1.0
+        };
         self.ring.set_level(level * self.fade);
         let scene = self.scene();
         // restart the animation on each change
@@ -300,6 +362,7 @@ impl Ui {
             Scene::Stalled if blink(t) => self.ring.dot(station, color),
             Scene::Stalled => self.ring.dot(station, Color::OFF),
             Scene::Buffering => self.ring.dot(station, color.scale(wave(t, PULSE_PERIOD))),
+            Scene::Standby => self.ring.dot(station, color.scale(wave(t, STANDBY_PERIOD))),
             Scene::Station => self.ring.dot(station, color),
             Scene::Volume => self.ring.volume(self.settings.volume),
         };
@@ -309,6 +372,9 @@ impl Ui {
     }
 
     fn scene(&self) -> Scene {
+        if self.standby {
+            return Scene::Standby;
+        }
         match self.status.get() {
             State::Fatal => Scene::Fatal,
             State::Portal => Scene::Portal,
@@ -322,10 +388,23 @@ impl Ui {
         }
     }
 
-    /// Turn everything off, wait for the button release and enter deep sleep.
+    /// Turn the audio off and stop the stream, the ring breathes dimly. Wifi stays on.
+    fn standby(&mut self) -> Result<()> {
+        log::info!("entering standby");
+        self.tuner.stop();
+        self.dac.power_down()?;
+        self.led.set(Color::OFF)?;
+        self.mode = Mode::Station;
+        self.standby = true;
+        Ok(())
+    }
+
+    /// Wait for the knob release and enter deep sleep, a knob press wakes the device.
     fn sleep(&mut self) -> Result<()> {
         log::info!("long press, going to sleep");
-        self.dac.power_down()?;
+        if !self.standby {
+            self.dac.power_down()?;
+        }
         // turn the LEDs off to indicate the press was long enough
         self.led.set(Color::OFF)?;
         for tick in (0..FADE_TICKS).rev() {
@@ -344,6 +423,15 @@ impl Ui {
         esp!(unsafe { rtc_gpio_pullup_en(pin) })?;
         esp!(unsafe { esp_sleep_enable_ext0_wakeup(pin, 0) })?;
         unsafe { esp_deep_sleep_start() }
+    }
+
+    /// Leave standby by restarting, which starts the DAC and the stream again.
+    fn wake(&self) -> ! {
+        log::info!("waking up");
+        if self.changed_at.is_some() {
+            self.commit();
+        }
+        restart();
     }
 
     /// Erase the whole NVS partition, wait for the boot button release and restart.
@@ -388,6 +476,7 @@ enum Scene {
     Connecting,
     Stalled,
     Buffering,
+    Standby,
     Station,
     Volume,
 }

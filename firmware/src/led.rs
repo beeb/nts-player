@@ -26,7 +26,7 @@ const VOLUME_START: u8 = RING_LEDS / 2;
 const VOLUME_ZERO: f32 = 0.5;
 
 /// Byte value of a full color channel on the ring.
-const BRIGHTNESS: f32 = 16.0;
+const BRIGHTNESS: f32 = 32.0;
 
 /// Byte value of a full color channel on the onboard LED, which is very bright.
 const DBG_BRIGHTNESS: f32 = 1.0;

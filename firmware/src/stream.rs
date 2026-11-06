@@ -2,7 +2,7 @@ use std::{
     convert::Infallible,
     sync::{
         Arc, OnceLock,
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicBool, AtomicU8, Ordering},
     },
     thread::{self, Thread},
     time::Duration,
@@ -20,26 +20,42 @@ use esp_idf_svc::{
 
 use crate::{buffer::RingBuffer, led::RING_LEDS, status::Status};
 
-/// Stream URLs
-pub const STATIONS: [&str; 18] = [
-    "https://stream-relay-geo.ntslive.net/stream",  // NTS 1
-    "https://stream-relay-geo.ntslive.net/stream2", // NTS 2
-    "https://stream-mixtape-geo.ntslive.net/mixtape4", // Poolside
-    "https://stream-mixtape-geo.ntslive.net/mixtape", // Slow Focus
-    "https://stream-mixtape-geo.ntslive.net/mixtape2", // Low Key
-    "https://stream-mixtape-geo.ntslive.net/mixtape6", // Memory Lane
-    "https://stream-mixtape-geo.ntslive.net/mixtape5", // 4 To The Floor
-    "https://stream-mixtape-geo.ntslive.net/mixtape21", // Island Time
-    "https://stream-mixtape-geo.ntslive.net/mixtape26", // The Tube
-    "https://stream-mixtape-geo.ntslive.net/mixtape35", // Sheet Music
-    "https://stream-mixtape-geo.ntslive.net/mixtape27", // Feelings
-    "https://stream-mixtape-geo.ntslive.net/mixtape3", // Expansions
-    "https://stream-mixtape-geo.ntslive.net/mixtape22", // Rap House
-    "https://stream-mixtape-geo.ntslive.net/mixtape31", // Labyrinth
-    "https://stream-mixtape-geo.ntslive.net/mixtape24", // Sweat
-    "https://stream-mixtape-geo.ntslive.net/mixtape36", // Otaku
-    "https://stream-mixtape-geo.ntslive.net/mixtape34", // The Pit
-    "https://stream-mixtape-geo.ntslive.net/mixtape23", // Field Recordings
+/// A radio station.
+pub struct Station {
+    /// Name shown in Home Assistant.
+    pub name: &'static str,
+
+    /// URL of the MP3 stream.
+    pub url: &'static str,
+}
+
+impl Station {
+    const fn new(name: &'static str, url: &'static str) -> Self {
+        Self { name, url }
+    }
+}
+
+/// The stations, in the order of the LEDs.
+#[rustfmt::skip]
+pub const STATIONS: [Station; 18] = [
+    Station::new("NTS 1",            "https://stream-relay-geo.ntslive.net/stream"),
+    Station::new("NTS 2",            "https://stream-relay-geo.ntslive.net/stream2"),
+    Station::new("Poolside",         "https://stream-mixtape-geo.ntslive.net/mixtape4"),
+    Station::new("Slow Focus",       "https://stream-mixtape-geo.ntslive.net/mixtape"),
+    Station::new("Low Key",          "https://stream-mixtape-geo.ntslive.net/mixtape2"),
+    Station::new("Memory Lane",      "https://stream-mixtape-geo.ntslive.net/mixtape6"),
+    Station::new("4 To The Floor",   "https://stream-mixtape-geo.ntslive.net/mixtape5"),
+    Station::new("Island Time",      "https://stream-mixtape-geo.ntslive.net/mixtape21"),
+    Station::new("The Tube",         "https://stream-mixtape-geo.ntslive.net/mixtape26"),
+    Station::new("Sheet Music",      "https://stream-mixtape-geo.ntslive.net/mixtape35"),
+    Station::new("Feelings",         "https://stream-mixtape-geo.ntslive.net/mixtape27"),
+    Station::new("Expansions",       "https://stream-mixtape-geo.ntslive.net/mixtape3"),
+    Station::new("Rap House",        "https://stream-mixtape-geo.ntslive.net/mixtape22"),
+    Station::new("Labyrinth",        "https://stream-mixtape-geo.ntslive.net/mixtape31"),
+    Station::new("Sweat",            "https://stream-mixtape-geo.ntslive.net/mixtape24"),
+    Station::new("Otaku",            "https://stream-mixtape-geo.ntslive.net/mixtape36"),
+    Station::new("The Pit",          "https://stream-mixtape-geo.ntslive.net/mixtape34"),
+    Station::new("Field Recordings", "https://stream-mixtape-geo.ntslive.net/mixtape23"),
 ];
 
 /// Number of live channels at the start of [`STATIONS`], the others are mixtapes.
@@ -76,6 +92,8 @@ const MAX_BACKOFF: Duration = Duration::from_secs(30);
 /// The station selector, shared by the UI and the network thread.
 pub struct Tuner {
     station: AtomicU8,
+    /// Whether the stream stopped for standby, for good until the restart.
+    stopped: AtomicBool,
     /// The network thread, once it runs.
     thread: OnceLock<Thread>,
 }
@@ -84,6 +102,7 @@ impl Tuner {
     pub fn new(station: u8) -> Self {
         Self {
             station: AtomicU8::new(station),
+            stopped: AtomicBool::new(false),
             thread: OnceLock::new(),
         }
     }
@@ -98,6 +117,18 @@ impl Tuner {
         if let Some(t) = self.thread.get() {
             t.unpark();
         }
+    }
+
+    /// Make the network thread drop its connection and wait until the restart.
+    pub fn stop(&self) {
+        self.stopped.store(true, Ordering::Relaxed);
+        if let Some(t) = self.thread.get() {
+            t.unpark();
+        }
+    }
+
+    fn is_stopped(&self) -> bool {
+        self.stopped.load(Ordering::Relaxed)
     }
 }
 
@@ -142,6 +173,12 @@ impl Stream {
         let mut backoff = MIN_BACKOFF;
         loop {
             let Err(e) = self.stream(&mut backoff);
+            if self.tuner.is_stopped() {
+                log::info!("stream stopped for standby");
+                loop {
+                    thread::park();
+                }
+            }
             if self.switch() {
                 backoff = MIN_BACKOFF;
                 continue;
@@ -159,6 +196,9 @@ impl Stream {
 
     /// Connect and copy the body into the buffer until something fails or the station changes.
     fn stream(&self, backoff: &mut Duration) -> Result<Infallible> {
+        if self.tuner.is_stopped() {
+            bail!("stopped");
+        }
         let mut conn = self.connect()?;
         let mut chunk = vec![0; CHUNK];
         loop {
@@ -169,8 +209,8 @@ impl Stream {
             self.buffer
                 .write(chunk.get(..n).context("read past the chunk")?);
             self.status.set_stalled(false);
-            if self.tuner.get() != self.station {
-                bail!("station changed");
+            if self.tuner.get() != self.station || self.tuner.is_stopped() {
+                bail!("station changed or stopped");
             }
             *backoff = MIN_BACKOFF;
         }
@@ -197,6 +237,7 @@ impl Stream {
         let mut url = STATIONS
             .get(usize::from(self.station))
             .context("no such station")?
+            .url
             .to_string();
         for _ in 0..=MAX_REDIRECTS {
             log::info!("GET {url}");
