@@ -45,10 +45,10 @@ impl Color {
     pub const DBG_YELLOW: Self = Self::rgb(1.0, 1.0, 0.0);
     pub const DBG_GREEN: Self = Self::rgb(0.0, 1.0, 0.0);
     pub const DBG_BLUE: Self = Self::rgb(0.0, 0.0, 1.0);
-    pub const LIVE: Self = Self::rgb(0.75, 0.7, 0.7);
+    pub const LIVE: Self = Self::rgb(0.7, 0.7, 0.7);
     pub const MIXTAPE: Self = Self::rgb(1.0, 0.0, 0.0);
-    pub const VOLUME: Self = Self::rgb(0.7, 0.5, 0.0);
-    pub const WIFI: Self = Self::rgb(0.0, 0.0, 1.0);
+    pub const VOLUME: Self = Self::rgb(0.8, 0.41, 0.12);
+    pub const WIFI: Self = Self::rgb(0.25, 0.0, 1.0);
     pub const ERROR: Self = Self::rgb(1.0, 0.0, 0.0);
 
     pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
@@ -148,11 +148,13 @@ impl Ring {
             },
             ..Default::default()
         };
+        // drive the data line low before powering the ring, a floating line makes the LEDs flash
+        let driver = Ws2812Esp32RmtDriver::new_with_config(data, &config)?;
         let mut power = PinDriver::output(power)?;
         power.set_high()?;
         FreeRtos::delay_ms(RAIL_RISE_MS);
         let mut ring = Self {
-            driver: Ws2812Esp32RmtDriver::new_with_config(data, &config)?,
+            driver,
             power,
             level: 1.0,
         };
