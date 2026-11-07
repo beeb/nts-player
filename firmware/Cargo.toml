@@ -18,6 +18,7 @@ heapless = "0.9.3"
 log = "0.4.34"
 # no `wide`: it crashes the Xtensa LLVM backend at opt-level 2+, and Xtensa has no SIMD for it anyway
 nanomp3 = { version = "0.2.0", default-features = false, features = ["std", "layer12"] }
+prost = "0.14.4"
 ws2812-esp32-rmt-driver = "0.15.0"
 
 [build-dependencies]
@@ -25,3 +26,6 @@ embuild = "0.33.7"
 
 [lints]
 workspace = true
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/mdns", version = "1.15" }

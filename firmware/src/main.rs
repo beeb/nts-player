@@ -1,4 +1,8 @@
-use std::{sync::Arc, thread, time::Duration};
+use std::{
+    sync::{Arc, Mutex, mpsc},
+    thread,
+    time::Duration,
+};
 
 use anyhow::Result;
 use esp_idf_svc::{
@@ -9,6 +13,7 @@ use esp_idf_svc::{
 };
 
 use crate::{
+    api::{Api, Snapshot},
     audio::Player,
     buffer::RingBuffer,
     dac::{Dac, DacPins, I2sPins},
@@ -20,6 +25,7 @@ use crate::{
     wifi::Credentials,
 };
 
+mod api;
 mod audio;
 mod buffer;
 mod dac;
@@ -84,6 +90,8 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
         },
         settings.volume,
     )?);
+    let snapshot = Arc::new(Mutex::new(Snapshot::new(settings)));
+    let (commands_tx, commands_rx) = mpsc::channel();
     Ui::spawn(
         InputPins {
             enc_a: peripherals.pins.gpio10.degrade_input(),
@@ -98,6 +106,8 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
         dac.clone(),
         status.clone(),
         settings,
+        snapshot.clone(),
+        commands_rx,
         nvs.clone(),
     )?;
     let sysloop = EspSystemEventLoop::take()?;
@@ -144,6 +154,9 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
 
     Stream::spawn(tuner, buffer.clone(), status.clone(), nvs)?;
     Player::spawn(buffer, dac)?;
+    if let Err(e) = Api::spawn(wifi.wifi().sta_netif(), snapshot, commands_tx) {
+        log::warn!("could not start the API, playing anyway: {e:?}");
+    }
     // keep `wifi` alive and reconnect it when the link drops
     loop {
         thread::sleep(WIFI_CHECK_INTERVAL);
