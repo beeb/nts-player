@@ -15,20 +15,21 @@ use prost::{Message, encoding::encode_varint};
 use crate::{
     prelude::OrPanic,
     settings::{Settings, Volume},
-    stream::STATIONS,
+    stream::{STATION_COUNT, STATIONS},
 };
 
 mod proto;
 
 use proto::{
-    AUTHENTICATION_REQUEST, AuthenticationResponse, DEVICE_CAPABILITIES_REQUEST,
-    DEVICE_INFO_REQUEST, DISCONNECT_REQUEST, DeviceCapabilitiesResponse, DeviceInfoResponse,
-    DisconnectResponse, HELLO_REQUEST, HelloResponse, LIST_ENTITIES_REQUEST,
-    ListEntitiesDoneResponse, ListEntitiesNumberResponse, ListEntitiesSelectResponse,
-    ListEntitiesSwitchResponse, NUMBER_COMMAND_REQUEST, NUMBER_MODE_SLIDER, NumberCommandRequest,
-    NumberStateResponse, PING_REQUEST, PingResponse, SELECT_COMMAND_REQUEST,
-    SUBSCRIBE_STATES_REQUEST, SWITCH_COMMAND_REQUEST, SelectCommandRequest, SelectStateResponse,
-    SwitchCommandRequest, SwitchStateResponse, Typed,
+    AUTHENTICATION_REQUEST, AuthenticationResponse, BUTTON_COMMAND_REQUEST, ButtonCommandRequest,
+    DEVICE_CAPABILITIES_REQUEST, DEVICE_INFO_REQUEST, DISCONNECT_REQUEST,
+    DeviceCapabilitiesResponse, DeviceInfoResponse, DisconnectResponse, HELLO_REQUEST,
+    HelloResponse, LIST_ENTITIES_REQUEST, ListEntitiesButtonResponse, ListEntitiesDoneResponse,
+    ListEntitiesNumberResponse, ListEntitiesSelectResponse, ListEntitiesSwitchResponse,
+    NUMBER_COMMAND_REQUEST, NUMBER_MODE_SLIDER, NumberCommandRequest, NumberStateResponse,
+    PING_REQUEST, PingResponse, SELECT_COMMAND_REQUEST, SUBSCRIBE_STATES_REQUEST,
+    SWITCH_COMMAND_REQUEST, SelectCommandRequest, SelectStateResponse, SwitchCommandRequest,
+    SwitchStateResponse, Typed,
 };
 
 /// Device name, also the mDNS host name. HA requires both to match.
@@ -56,6 +57,8 @@ const MAX_PAYLOAD: usize = 1024;
 const POWER_KEY: u32 = 1;
 const STATION_KEY: u32 = 2;
 const VOLUME_KEY: u32 = 3;
+const PREV_STATION_KEY: u32 = 4;
+const NEXT_STATION_KEY: u32 = 5;
 
 /// The state shown in HA.
 #[derive(Clone, Copy, PartialEq)]
@@ -235,6 +238,24 @@ impl Api {
                     log::warn!("ignoring number command {m:?}");
                 }
             }
+            BUTTON_COMMAND_REQUEST => {
+                let m = ButtonCommandRequest::decode(payload)?;
+                let station = self
+                    .snapshot
+                    .lock()
+                    .or_panic("snapshot mutex poisoned")
+                    .station;
+                let n = STATION_COUNT;
+                let station = match m.key {
+                    PREV_STATION_KEY => station.checked_sub(1).unwrap_or(n - 1),
+                    NEXT_STATION_KEY => (station + 1) % n,
+                    _ => {
+                        log::warn!("ignoring button command {m:?}");
+                        return Ok(true);
+                    }
+                };
+                self.commands.send(Command::Station(station))?;
+            }
             // HA subscribes to logs, services, HA states and more, which the device doesn't offer
             _ => log::debug!("skipping API message {ty}"),
         }
@@ -413,6 +434,18 @@ fn list_entities(c: &mut Client) -> Result<()> {
         max_value: f32::from(Volume::MAX.get()),
         step: 1.0,
         mode: NUMBER_MODE_SLIDER,
+    })?;
+    c.send(&ListEntitiesButtonResponse {
+        object_id: "previous_station".to_string(),
+        key: PREV_STATION_KEY,
+        name: "Previous station".to_string(),
+        icon: "mdi:skip-previous".to_string(),
+    })?;
+    c.send(&ListEntitiesButtonResponse {
+        object_id: "next_station".to_string(),
+        key: NEXT_STATION_KEY,
+        name: "Next station".to_string(),
+        icon: "mdi:skip-next".to_string(),
     })?;
     c.send(&ListEntitiesDoneResponse {})
 }

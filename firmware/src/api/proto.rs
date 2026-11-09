@@ -23,6 +23,7 @@ pub const SWITCH_COMMAND_REQUEST: u32 = 33;
 pub const DEVICE_CAPABILITIES_REQUEST: u32 = 149;
 pub const NUMBER_COMMAND_REQUEST: u32 = 51;
 pub const SELECT_COMMAND_REQUEST: u32 = 54;
+pub const BUTTON_COMMAND_REQUEST: u32 = 62;
 
 /// `NumberMode::NUMBER_MODE_SLIDER`.
 pub const NUMBER_MODE_SLIDER: i32 = 2;
@@ -151,6 +152,22 @@ impl Typed for ListEntitiesNumberResponse {
 }
 
 #[derive(Clone, PartialEq, Message)]
+pub struct ListEntitiesButtonResponse {
+    #[prost(string, tag = "1")]
+    pub object_id: String,
+    #[prost(fixed32, tag = "2")]
+    pub key: u32,
+    #[prost(string, tag = "3")]
+    pub name: String,
+    #[prost(string, tag = "5")]
+    pub icon: String,
+}
+
+impl Typed for ListEntitiesButtonResponse {
+    const ID: u32 = 61;
+}
+
+#[derive(Clone, PartialEq, Message)]
 pub struct ListEntitiesDoneResponse {}
 
 impl Typed for ListEntitiesDoneResponse {
@@ -215,4 +232,10 @@ pub struct NumberCommandRequest {
     pub key: u32,
     #[prost(float, tag = "2")]
     pub state: f32,
+}
+
+#[derive(Clone, PartialEq, Message)]
+pub struct ButtonCommandRequest {
+    #[prost(fixed32, tag = "1")]
+    pub key: u32,
 }
