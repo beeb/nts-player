@@ -9,3 +9,4 @@ production/
 .direnv/
 /.embuild
 /target
+/nts-player-*.bin

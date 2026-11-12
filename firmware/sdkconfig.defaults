@@ -26,3 +26,9 @@ CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 
 # skip the ARP probe of the offered address, it delays getting an IP by about 1 s
 CONFIG_LWIP_DHCP_DOES_NOT_CHECK_OFFERED_IP=y
+
+# a new firmware must mark itself valid, or the bootloader goes back to the previous one on the next reset
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# the N16R8 module, the bootloader must know about the second app slot past 2 MB
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y

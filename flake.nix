@@ -14,6 +14,8 @@
           rust-analyzer-unwrapped
           ldproxy
           espflash
+          just
+          jq
 
           # required for esp-idf build
           (python313.withPackages (ps: [

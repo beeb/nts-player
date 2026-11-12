@@ -25,10 +25,12 @@ favorite radio by [becoming a supporter](https://www.nts.live/supporters) or
   - This is meant as line out, not as headphones output, it expects a load of 1 kOhm or more.
   - The DAC can reach 2.1 Vrms, but the firmware limits the top volume step to -3 dB.
 - Low sleep current (about 0.6 mA at 5 V): LED ring and DAC are power-switched in deep sleep
-- Home Assistant "off" is a standby that keeps Wi-Fi on and breathes the station LED dimly, press the knob or turn it on in HA to wake
+- Home Assistant "off" is a standby that keeps Wi-Fi on and breathes the station LED dimly, press the knob or turn it on
+  in HA to wake
 - Powered over USB-C (5 V)
 - Wi-Fi setup through a portal on the `nts-player` access point
 - Home Assistant control (power, station, volume) through the built-in ESPHome integration
+- Firmware updates over Wi-Fi from a page on the device, with automatic rollback if the new firmware fails to start
 
 ## Repository Layout
 
@@ -63,7 +65,8 @@ This is a `std` (ESP-IDF based) Rust project. The ESP-IDF C SDK is downloaded an
 ### Prerequisites with Nix
 
 The [flake](./flake.nix) provides a dev shell (x86_64 Linux only) with the Xtensa Rust toolchain from esp-rs (pinned in
-[`nix/esp-rust.nix`](./nix/esp-rust.nix)), `ldproxy`, `espflash` and the tools needed by the ESP-IDF build:
+[`nix/esp-rust.nix`](./nix/esp-rust.nix)), `ldproxy`, `espflash`, `just`, `jq` and the tools needed by the ESP-IDF
+build:
 
 ```sh
 nix develop
@@ -92,14 +95,16 @@ reference for the toolchain setup. TL;DR:
    . $HOME/export-esp.sh
    ```
 
-5. Install the linker wrapper and the flashing tool:
+5. Install the linker wrapper, the flashing tool and the command runner:
 
    ```sh
    cargo install ldproxy --locked
    cargo install espflash --locked
+   cargo install just --locked
    ```
 
-   `ldproxy` is required by [`.cargo/config.toml`](./.cargo/config.toml) to use `espflash` as the cargo `runner`.
+   `ldproxy` is the linker set in [`.cargo/config.toml`](./.cargo/config.toml). Also install `jq` with your package
+   manager. `just` runs the commands below, `jq` reads the version in `just export`.
 
 ### ESP-IDF
 
@@ -116,24 +121,24 @@ ESP-IDF toolchains. This will take a few GBs of space and take a while the first
 ### Build
 
 ```sh
-cargo build --release
+just build
 ```
+
+Run `just` alone to list all commands.
 
 ### Flash and Monitor
 
 Connect the board over USB, then:
 
 ```sh
-cargo run --release
+just flash
 ```
 
-The `runner` configured in [`.cargo/config.toml`](./.cargo/config.toml) invokes `espflash flash --monitor`, which
-flashes the firmware and then opens the serial monitor. To flash without the monitor, or from a script, give the port
-explicitly:
-
-```sh
-espflash flash --port /dev/ttyACM0 target/xtensa-esp32s3-espidf/release/nts-player
-```
+This builds the release firmware, flashes it and opens the serial monitor. `cargo run` does the same through the cargo
+`runner` in [`.cargo/config.toml`](./.cargo/config.toml), which calls `just flash-elf`. That recipe also writes the
+bootloader built by ESP-IDF (it has app rollback enabled) and the partition table in
+[`firmware/partitions.csv`](./firmware/partitions.csv). Plain `espflash flash <elf>` would write espflash's own
+bootloader and table and break updates over Wi-Fi. `just monitor` opens the monitor without flashing.
 
 ### WSL
 
@@ -146,6 +151,31 @@ usbipd attach --wsl --busid <BUSID> --auto-attach   # each session
 ```
 
 Your WSL user must be in the `dialout` group to open `/dev/ttyACM0`.
+
+## Firmware Updates over Wi-Fi
+
+Devices flashed with the dual-slot partition table can be updated from a browser. Devices with the older single-slot
+layout need one last USB flash with `just flash` first. It keeps the Wi-Fi settings, the station and the volume.
+
+### Making a release
+
+1. Bump `version` in [`firmware/Cargo.toml`](./firmware/Cargo.toml).
+2. Run `just export`. It builds the release firmware and saves `nts-player-<version>.bin` at the repository root.
+3. Send that file.
+
+### Updating a player
+
+1. On the same Wi-Fi as the player, open <http://nts-player.local/>. If the name doesn't resolve, use the player's IP
+   address from your router.
+2. Pick the `.bin` file and click Upload. Keep the page open.
+3. Playback stops and the ring fills up in green. The player restarts with the new firmware, and the page shows the new
+   version.
+
+The page rejects files that are not an NTS Player firmware, and playback goes on. If the upload stops halfway, the ring
+blinks red and the player restarts with its old firmware. If the new firmware fails before it connects to Wi-Fi, the
+next restart goes back to the old firmware.
+
+Anyone on the same network can open this page and flash the player.
 
 ## License
 

@@ -19,6 +19,7 @@ use crate::{
     dac::{Dac, DacPins, I2sPins},
     input::{InputPins, Ui},
     led::{Color, Led, Ring},
+    ota::Ota,
     settings::Settings,
     status::{State, Status},
     stream::{Stream, Tuner},
@@ -31,12 +32,19 @@ mod buffer;
 mod dac;
 mod input;
 mod led;
+mod ota;
 mod portal;
 mod prelude;
 mod settings;
 mod status;
 mod stream;
 mod wifi;
+
+/// Name and version in the image header, the update page checks them.
+#[expect(unexpected_cfgs)]
+mod app_desc {
+    esp_idf_svc::sys::esp_app_desc!();
+}
 
 const CONNECT_ATTEMPTS: usize = 3;
 const PORTAL_TIMEOUT: Duration = Duration::from_mins(5);
@@ -67,6 +75,10 @@ fn main() {
 }
 
 /// Run the app, storing the LED in `led` so that `main` can still use it on error.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the startup sequence reads best in one place"
+)]
 fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
     let peripherals = Peripherals::take()?;
     let led = led.insert(Arc::new(Led::new(peripherals.pins.gpio38)?));
@@ -154,9 +166,12 @@ fn run(led: &mut Option<Arc<Led>>, status: &Arc<Status>) -> Result<()> {
 
     Stream::spawn(tuner, buffer.clone(), status.clone(), nvs)?;
     Player::spawn(buffer, dac)?;
-    if let Err(e) = Api::spawn(wifi.wifi().sta_netif(), snapshot, commands_tx) {
+    if let Err(e) = Api::spawn(wifi.wifi().sta_netif(), snapshot, commands_tx.clone()) {
         log::warn!("could not start the API, playing anyway: {e:?}");
     }
+    // keep the server alive in the loop below
+    let _ota = Ota::start(commands_tx)
+        .inspect_err(|e| log::warn!("could not start the update page, playing anyway: {e:?}"));
     // keep `wifi` alive and reconnect it when the link drops
     loop {
         thread::sleep(WIFI_CHECK_INTERVAL);
