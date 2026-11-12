@@ -154,9 +154,6 @@ Your WSL user must be in the `dialout` group to open `/dev/ttyACM0`.
 
 ## Firmware Updates over Wi-Fi
 
-Devices flashed with the dual-slot partition table can be updated from a browser. Devices with the older single-slot
-layout need one last USB flash with `just flash` first. It keeps the Wi-Fi settings, the station and the volume.
-
 ### Making a release
 
 1. Bump `version` in [`firmware/Cargo.toml`](./firmware/Cargo.toml).
@@ -165,17 +162,14 @@ layout need one last USB flash with `just flash` first. It keeps the Wi-Fi setti
 
 ### Updating a player
 
-1. On the same Wi-Fi as the player, open <http://nts-player.local/>. If the name doesn't resolve, use the player's IP
-   address from your router.
+1. On the same Wi-Fi as the player, open <http://nts-player.local/>. If the name doesn't resolve, use the IP address of
+   the ESP32.
 2. Pick the `.bin` file and click Upload. Keep the page open.
-3. Playback stops and the ring fills up in green. The player restarts with the new firmware, and the page shows the new
-   version.
+3. Playback stops and the LED ring fills up in green. The player restarts with the new firmware, and the page shows the
+   new version.
 
-The page rejects files that are not an NTS Player firmware, and playback goes on. If the upload stops halfway, the ring
-blinks red and the player restarts with its old firmware. If the new firmware fails before it connects to Wi-Fi, the
-next restart goes back to the old firmware.
-
-Anyone on the same network can open this page and flash the player.
+The page rejects files that are not a valid firmware. If the new firmware fails before it connects to Wi-Fi, the next
+restart rolls back to the old firmware.
 
 ## License
 
