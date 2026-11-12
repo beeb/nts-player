@@ -96,6 +96,9 @@ const BLINK_PERIOD: Duration = Duration::from_secs(1);
 /// Duration of the spinning animation while connecting to wifi.
 const SPIN_PERIOD: Duration = Duration::from_secs(1);
 
+/// Duration of the blink for a failed firmware update, before restarting.
+const UPDATE_FAILED: Duration = Duration::from_secs(2);
+
 /// The input pins, all active low.
 pub struct InputPins {
     /// Encoder channel A.
@@ -148,6 +151,8 @@ pub struct Ui {
     fade: f32,
     /// Whether the device is in standby: audio and stream off, wifi on.
     standby: bool,
+    /// LEDs lit for the running firmware update, `None` when no update runs.
+    updating: Option<u8>,
 }
 
 impl Ui {
@@ -192,6 +197,7 @@ impl Ui {
             input_at: Instant::now(),
             fade: 1.0,
             standby: false,
+            updating: None,
         };
         thread::Builder::new()
             .stack_size(STACK_SIZE)
@@ -208,6 +214,11 @@ impl Ui {
             FreeRtos::delay_ms(POLL_DELAY_MS);
             while let Ok(cmd) = self.commands.try_recv() {
                 self.command(cmd)?;
+            }
+            if self.updating.is_some() {
+                // inputs are ignored until the restart that ends the update
+                self.draw();
+                continue;
             }
             if let Some(step) = self.encoder.poll()?
                 && !self.standby
@@ -294,10 +305,19 @@ impl Ui {
         self.input_at = Instant::now();
     }
 
-    /// Apply a change requested by HA.
+    /// Apply a change requested by HA or the update server.
     fn command(&mut self, cmd: Command) -> Result<()> {
-        log::info!("HA command: {cmd:?}");
+        log::info!("command: {cmd:?}");
         match cmd {
+            Command::Update(lit) => {
+                self.update_progress(lit);
+                return Ok(());
+            }
+            Command::UpdateFailed if self.updating.is_some() => self.update_failed(),
+            // nothing to undo if the update failed before it started
+            Command::UpdateFailed => return Ok(()),
+            // restart and drop other commands if updating
+            _ if self.updating.is_some() => return Ok(()),
             Command::Power(true) if self.standby => self.wake(),
             Command::Power(false) if !self.standby => return self.standby(),
             Command::Power(_) => return Ok(()),
@@ -337,7 +357,9 @@ impl Ui {
     /// Draw the current scene on the ring.
     fn draw(&mut self) {
         let idle = self.input_at.elapsed() >= IDLE_TIMEOUT;
-        let level = if self.standby {
+        let level = if self.updating.is_some() {
+            1.0
+        } else if self.standby {
             STANDBY_LEVEL
         } else if idle {
             IDLE_LEVEL
@@ -365,6 +387,7 @@ impl Ui {
             Scene::Standby => self.ring.dot(station, color.scale(wave(t, STANDBY_PERIOD))),
             Scene::Station => self.ring.dot(station, color),
             Scene::Volume => self.ring.volume(self.settings.volume),
+            Scene::Update(lit) => self.ring.bar(lit, Color::UPDATE),
         };
         if let Err(e) = res {
             log::warn!("could not update LED ring: {e:?}");
@@ -372,6 +395,9 @@ impl Ui {
     }
 
     fn scene(&self) -> Scene {
+        if let Some(lit) = self.updating {
+            return Scene::Update(lit);
+        }
         if self.standby {
             return Scene::Standby;
         }
@@ -434,6 +460,39 @@ impl Ui {
         restart();
     }
 
+    /// Show the progress of a firmware update, stopping playback on the first call.
+    fn update_progress(&mut self, lit: u8) {
+        let first = self.updating.is_none();
+        self.updating = Some(lit);
+        if first && !self.standby {
+            log::info!("firmware update started, stopping playback");
+            self.tuner.stop();
+            // the UI thread must live on to restart the device if the update fails
+            if let Err(e) = self.dac.power_down() {
+                log::warn!("could not power down the DAC: {e:?}");
+            }
+        }
+    }
+
+    /// Blink the ring red, then restart into the old firmware.
+    fn update_failed(&mut self) -> ! {
+        log::warn!("firmware update failed, restarting");
+        self.ring.set_level(1.0);
+        let start = Instant::now();
+        while start.elapsed() < UPDATE_FAILED {
+            let color = if blink(start.elapsed()) {
+                Color::ERROR
+            } else {
+                Color::OFF
+            };
+            if let Err(e) = self.ring.all(color) {
+                log::warn!("could not update LED ring: {e:?}");
+            }
+            FreeRtos::delay_ms(POLL_DELAY_MS);
+        }
+        restart();
+    }
+
     /// Erase the whole NVS partition, wait for the boot button release and restart.
     fn reset(&mut self) -> Result<()> {
         log::warn!("boot button held, erasing NVS");
@@ -479,6 +538,7 @@ enum Scene {
     Standby,
     Station,
     Volume,
+    Update(u8),
 }
 
 /// One encoder detent.

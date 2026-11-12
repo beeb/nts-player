@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NTS Player Update</title>
+<style>
+html { color-scheme: dark; background: #111; color: #eee; font-family: sans-serif; font-size: 1.25em; line-height: 1.75; max-width: 30rem; padding: 3em 1em; margin: auto; }
+input, button, progress { display: block; width: 100%; box-sizing: border-box; margin: 0.25em 0 1em; padding: 0.5em; font: inherit; }
+</style>
+</head>
+<body>
+<h1>NTS Player Update</h1>
+<p>Firmware version: {version}</p>
+<label>Firmware file <input id="file" type="file" accept=".bin"></label>
+<button id="go">Upload</button>
+<progress id="bar" value="0" max="1" hidden></progress>
+<p id="msg"></p>
+<script>
+go.onclick = () => {
+  const f = file.files[0];
+  if (!f) return;
+  go.disabled = true;
+  bar.hidden = false;
+  msg.textContent = "Uploading, keep this page open.";
+  const x = new XMLHttpRequest();
+  x.open("POST", "/update");
+  x.setRequestHeader("Content-Type", "application/octet-stream");
+  x.upload.onprogress = (e) => { bar.value = e.loaded / e.total; };
+  x.onload = () => {
+    msg.textContent = x.responseText;
+    if (x.status == 200) setTimeout(() => location.reload(), 15000);
+    else go.disabled = false;
+  };
+  x.onerror = () => {
+    msg.textContent = "Upload failed. The player keeps its current firmware.";
+    go.disabled = false;
+  };
+  x.send(f);
+};
+</script>
+</body>
+</html>

@@ -19,8 +19,8 @@ const RAIL_RISE_MS: u32 = 20;
 /// Number of LEDs on the ring.
 pub const RING_LEDS: u8 = 18;
 
-/// Index of the bottom LED, where the volume bar starts.
-const VOLUME_START: u8 = RING_LEDS / 2;
+/// Index of the bottom LED, where bars start.
+const BAR_START: u8 = RING_LEDS / 2;
 
 /// Level of the bottom LED at volume 0, as a fraction of the volume color.
 const VOLUME_ZERO: f32 = 0.5;
@@ -50,6 +50,7 @@ impl Color {
     pub const VOLUME: Self = Self::rgb(0.8, 0.41, 0.12);
     pub const WIFI: Self = Self::rgb(0.25, 0.0, 1.0);
     pub const ERROR: Self = Self::rgb(1.0, 0.0, 0.0);
+    pub const UPDATE: Self = Self::rgb(0.1, 1.0, 0.2);
 
     pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self { r, g, b }
@@ -172,16 +173,19 @@ impl Ring {
         self.write(color, |_| true)
     }
 
-    /// Light a bar of `volume` LEDs clockwise from the bottom, or only a dim bottom LED at 0.
+    /// Light a bar of `count` LEDs clockwise from the bottom.
+    pub fn bar(&mut self, count: u8, color: Color) -> Result<()> {
+        self.write(color, |i| (i + RING_LEDS - BAR_START) % RING_LEDS < count)
+    }
+
+    /// Light a bar of `volume` LEDs, or only a dim bottom LED at 0.
     pub fn volume(&mut self, volume: Volume) -> Result<()> {
         let volume = volume.get();
         // a dim marker shows that volume mode is on
         if volume == 0 {
-            return self.dot(VOLUME_START, Color::VOLUME.scale(VOLUME_ZERO));
+            return self.dot(BAR_START, Color::VOLUME.scale(VOLUME_ZERO));
         }
-        self.write(Color::VOLUME, |i| {
-            (i + RING_LEDS - VOLUME_START) % RING_LEDS < volume
-        })
+        self.bar(volume, Color::VOLUME)
     }
 
     /// Scale all following writes by `level`, from 0 to 1, to dim the whole ring.

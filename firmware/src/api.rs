@@ -79,7 +79,7 @@ impl Snapshot {
     }
 }
 
-/// A command send by HA.
+/// A command for the UI thread, from HA or the update server.
 #[derive(Clone, Copy, Debug)]
 pub enum Command {
     /// Set playing or standby.
@@ -90,6 +90,12 @@ pub enum Command {
 
     /// The volume level
     Volume(Volume),
+
+    /// Firmware update is running, light up a number of LEDs, up to [`RING_LEDS`](crate::led::RING_LEDS).
+    Update(u8),
+
+    /// The firmware update stopped, the old firmware stays active.
+    UpdateFailed,
 }
 
 /// The API server thread.

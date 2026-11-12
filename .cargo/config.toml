@@ -10,7 +10,8 @@ MCU = "esp32s3"
 
 [target.'cfg(target_os = "espidf")']
 linker = "ldproxy"
-runner = "espflash flash --baud 921600 --monitor"
+# flashes our bootloader and partition table too, see the Justfile
+runner = "just flash-elf"
 rustflags = ["--cfg", "espidf_time64"]
 
 [unstable]
