@@ -7,6 +7,10 @@ It's built around the ESP32-S3 and a PCM5122 DAC, with firmware written in Rust 
 is made to be very simple to interact with: a single encoder with a large knob to select the station and change the
 volume.
 
+<p align="center">
+  <img src="photo.jpg" alt="NTS Web Radio Player" width="600">
+</p>
+
 A ring of LEDs show which station is selected and the current volume level. The click action of the encoder switches
 between the modes and allows to put the device to sleep.
 
